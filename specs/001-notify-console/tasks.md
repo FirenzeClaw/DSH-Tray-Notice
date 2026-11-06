@@ -248,9 +248,9 @@ description: "Task list for 托盘通知控制台"
   - [x] 会话不存在 → 静默落首页（不 alert、不刷屏 console.error）
   - [x] T031 转绿
 
-- [ ] T036 [US2] 客户端构建脚本 `plugin/scripts/build-client.mjs`
-  - [ ] 产物单文件自包含（无相对 import）；React 与 ui-primitives 保持外部裸模块引用
-  - [ ] `npm --prefix plugin run build` 产出 `dist/client.js`，`grep -c "from '\./"` 为 0
+- [x] T036 [US2] 客户端构建脚本 `plugin/scripts/build-client.mjs`
+  - [x] 产物单文件自包含（无相对 import）；React 与 ui-primitives 保持外部裸模块引用
+  - [x] `npm --prefix plugin run build` 产出 `dist/client.js`，`grep -c "from '\./"` 为 0
 
 **Checkpoint**: 点通知可精确回到会话；URL 参数被清除；刷新不重跳。
 
@@ -377,10 +377,10 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [x] 只读 `/proc`，不 fork 外部命令
   - [x] T053 转绿
 
-- [ ] T056 [US4] 进程角色归类 `dsh_tray/platform/linux.py`（ProcessSampler 部分）
-  - [ ] `core`（cmdline 含 `dsh web`）/ `mcp`（含 `mcp`）/ `tool`（dsh 子孙且非前两者）/ `other`
-  - [ ] 复用 `probe.child_pids()` 枚举
-  - [ ] 手工：概览里 MCP 与 bash 子进程标签正确
+- [x] T056 [US4] 进程角色归类 `dsh_tray/platform/linux.py`（ProcessSampler 部分）
+  - [x] `core`（cmdline 含 `dsh web`）/ `mcp`（含 `mcp`）/ `tool`（dsh 子孙且非前两者）/ `other`
+  - [x] 复用 `probe.child_pids()` 枚举
+  - [x] 手工：概览里 MCP 与 bash 子进程标签正确
 
 - [x] T057 [US4] 概览页 `dsh_tray/ui/overview.py`
   - [x] 顶部合计、按角色分组的行、页脚口径说明（单核百分比、ΣRSS 含共享页）
@@ -399,10 +399,10 @@ V5a = 工作中（T038、T039、T051、T052）。
 
 ### Tests for User Story 5
 
-- [ ] T058 [P] [US5] 设置映射测试 `plugin/tests/config.test.ts`（扩展）
-  - [ ] 任一预设选中 → 各组开关等于该预设默认值
-  - [ ] 单改一组 → `preset` 变 `custom`；改回与某预设完全一致 → 恢复该预设名
-  - [ ] `needs-you` 组内 `approval` / `answer` 可独立关闭
+- [x] T058 [P] [US5] 设置映射测试 `plugin/tests/config.test.ts`（扩展）
+  - [x] 任一预设选中 → 各组开关等于该预设默认值
+  - [x] 单改一组 → `preset` 变 `custom`；改回与某预设完全一致 → 恢复该预设名
+  - [x] `needs-you` 组内 `approval` / `answer` 可独立关闭
 
 ### Implementation for User Story 5
 
@@ -419,9 +419,9 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [x] 按钮触发一条 `kind:"test"` 的通知行（绕过组开关、不计入历史统计）
   - [x] 手工：点按钮立即出现一条测试通知
 
-- [ ] T062 [US5] 插件响应设置变化 `plugin/src/settings.ts` + `index.ts`
-  - [ ] 设置变更 → 重建策略 → 立即影响后续事件（不需重启）
-  - [ ] 手工：切「安静」后触发完成无通知，审批仍有
+- [x] T062 [US5] 插件响应设置变化 `plugin/src/settings.ts` + `index.ts`
+  - [x] 设置变更 → 重建策略 → 立即影响后续事件（不需重启）
+  - [x] 手工：切「安静」后触发完成无通知，审批仍有
 
 **Checkpoint 3（对齐 plan.md）**: 工作中时长每秒自增且刷新不跳变、DSH 停止后该页清空；概览首次待采样、面板关闭无采样；设置三预设即时生效、并发保存后者被拒；SC-001~008 逐条核对。**与人审查后再继续。**
 
@@ -437,10 +437,10 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [x] 未消费区间全部投递；超 2 小时的事件被过滤不投递
   - [x] 已消费区间不重复投递（offset 语义）
 
-- [ ] T064 [US7] 启动补投 `dsh_tray/notify/consumer.py`
-  - [ ] 启动时先 `read_new()` 全量补投（受时间窗限制），再进入轮询
-  - [ ] 补投条目进未查看并带「补投」标记
-  - [ ] T063 转绿 + 手工按 Independent Test 走一遍
+- [x] T064 [US7] 启动补投 `dsh_tray/notify/consumer.py`
+  - [x] 启动时先 `read_new()` 全量补投（受时间窗限制），再进入轮询
+  - [x] 补投条目进未查看并带「补投」标记
+  - [x] T063 转绿 + 手工按 Independent Test 走一遍
 
 - [x] T065 [US7] 汇总提示 `dsh_tray/ui/tray.py`
   - [x] 补投 > 0 时 tooltip 与面板顶部出现「错过 N 条通知」一次性提示，用户查看后消失
@@ -487,9 +487,9 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [x] 补插件构建与两侧测试命令（含 `QT_QPA_PLATFORM=offscreen`）
   - [x] 每条命令实测可跑
 
-- [ ] T073 走查 `quickstart.md`
-  - [ ] 按 §0–§5 逐步执行，修正与实际不符处
-  - [ ] §5 需人工点击的部分标注清楚
+- [x] T073 走查 `quickstart.md`
+  - [x] 按 §0–§5 逐步执行，修正与实际不符处
+  - [x] §5 需人工点击的部分标注清楚
 
 - [x] T074 SC 逐条核对（SC-001~008）
   - [x] 八条各有实测数据或明确的「未验证」标注
