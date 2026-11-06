@@ -12,7 +12,7 @@
 
 import type { NotificationKind, NotificationEntry, Urgency } from './types.ts'
 import type { Policy } from './settings.ts'
-import { NOTIFIABLE_REASONS, REASON_TO_KIND, type TurnEndReason } from './kinds.ts'
+import { NOTIFIABLE_REASONS, REASON_TO_KIND, type TurnEndReasonKind } from './kinds.ts'
 
 /** 会话的展示投影；由调用方从 `Session` 与标题服务拼出。 */
 export interface SessionView {
@@ -82,7 +82,7 @@ export function clip(body: string, limit: number): string {
 }
 
 /** 各类结束原因的标题与正文模板。 */
-const TURN_END_COPY: Readonly<Record<TurnEndReason, { title: string; body: (session: SessionView) => string }>> = {
+const TURN_END_COPY: Readonly<Record<TurnEndReasonKind, { title: string; body: (session: SessionView) => string }>> = {
   completed: { title: '已完成', body: (session) => `${session.title} 的这一轮跑完了` },
   error: { title: '出错了', body: (session) => `${session.title} 的轮次以错误结束，回到会话查看原因` },
   blocked: { title: '被阻塞', body: (session) => `${session.title} 停在阻塞状态，需要你处理` },
@@ -103,7 +103,7 @@ const TURN_END_COPY: Readonly<Record<TurnEndReason, { title: string; body: (sess
 export function intentFromTurnEnd(
   policy: Policy,
   session: SessionView,
-  data: { readonly turn: number; readonly reason: TurnEndReason },
+  data: { readonly turn: number; readonly reason: TurnEndReasonKind },
 ): NotificationIntent | undefined {
   const isSubagent = session.origin === 'subagent'
   if (isSubagent && !policy.subagents) return undefined

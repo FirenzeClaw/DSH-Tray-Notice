@@ -28,7 +28,7 @@ export const TURN_END_REASONS = [
 ] as const
 
 /** `turn/end` 结束原因。 */
-export type TurnEndReason = (typeof TURN_END_REASONS)[number]
+export type TurnEndReasonKind = (typeof TURN_END_REASONS)[number]
 
 /**
  * 结束原因 → 通知类别。
@@ -40,7 +40,7 @@ export type TurnEndReason = (typeof TURN_END_REASONS)[number]
  * 是否真的通知还要看开关：`cancelled`/`interrupted` 归 `other` 组，该组在安静与
  * 标准预设下关闭，因此「取消与中断默认不通知」（FR-003）。
  */
-export const REASON_TO_KIND: Readonly<Record<TurnEndReason, NotificationKind>> = {
+export const REASON_TO_KIND: Readonly<Record<TurnEndReasonKind, NotificationKind>> = {
   completed: 'done',
   error: 'error',
   blocked: 'blocked',
@@ -56,7 +56,7 @@ export const REASON_TO_KIND: Readonly<Record<TurnEndReason, NotificationKind>> =
  * 只列四类「有事发生」的结束；取消与中断默认静默（FR-003），但用户可以在详细
  * 预设里通过 `other` 组打开它们。
  */
-export const NOTIFIABLE_REASONS: ReadonlySet<TurnEndReason> = new Set<TurnEndReason>([
+export const NOTIFIABLE_REASONS: ReadonlySet<TurnEndReasonKind> = new Set<TurnEndReasonKind>([
   'completed',
   'error',
   'blocked',

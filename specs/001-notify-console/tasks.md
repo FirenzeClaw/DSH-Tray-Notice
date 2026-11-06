@@ -171,11 +171,11 @@ description: "Task list for 托盘通知控制台"
   - [x] 内容未变时不写新行
   - [x] 单测断言「turn/start + tool/call + turn/end 共写 3 行」
 
-- [ ] T023 [US1] 接线插件入口 `plugin/src/index.ts`
-  - [ ] 订阅 `session/event`（含 `turn/end`、`tool/call`、`tool/result`）、`approval/asked`、**`job/settled`**、**`goal/changed`**
-  - [ ] `user-questions/request` 用 **prepend 监听器**：先写通知与 waiting-user 快照，再 `await next()`
-  - [ ] 所有监听器包 try/catch，异常只记日志
-  - [ ] 单测用假 ctx 断言调用序列「write 在 next 之前」
+- [x] T023 [US1] 接线插件入口 `plugin/src/index.ts`
+  - [x] 订阅 `session/event`（含 `turn/end`、`tool/call`、`tool/result`）、`approval/asked`、**`job/settled`**、**`goal/changed`**
+  - [x] `user-questions/request` 用 **prepend 监听器**：先写通知与 waiting-user 快照，再 `await next()`
+  - [x] 所有监听器包 try/catch，异常只记日志
+  - [x] 单测用假 ctx 断言调用序列「write 在 next 之前」
 
 - [ ] T024 [US1] 托盘投递后端 `dsh_tray/notify/delivery.py`
   - [ ] `deliver(entry) -> bool`；按 `platform.backend` 分派；失败返回 False（FR-012）
