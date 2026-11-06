@@ -29,12 +29,14 @@ import { createSpoolWriter, type SpoolWriter } from './spool.ts'
 import { bindSettings, type Policy, type SettingsReader } from './settings.ts'
 import { createSessionTracker } from './sessionstate.ts'
 import { createDeferrer } from './defer.ts'
+import { matchNotice, noticeSourceSet } from './notices.ts'
 import {
   intentFromApproval,
   intentFromGoal,
   intentFromJob,
   intentFromQuestion,
   intentFromTurnEnd,
+  openUrlFor,
   toEntry,
   type NotificationIntent,
   type QuestionPayload,
@@ -258,6 +260,26 @@ export function wire(
           }
           case 'tool/call': {
             tracker.toolCall(sessionView(session, host.sessionTitle), event.data.name, event.data.arguments)
+            break
+          }
+          case 'user/message': {
+            // notice 形态的注入消息（例如 target-monitor 的「你可能卡住了」）：
+            // 会话里有，但用户不在屏幕前就看不到，所以要抬成桌面通知。
+            const source = (event.data as { source?: unknown }).source
+            const summary = matchNotice(source, noticeSourceSet(undefined))
+            if (summary !== undefined && policy.wants('notice')) {
+              const view = sessionView(session, host.sessionTitle)
+              emit({
+                kind: 'notice',
+                sessionId: view.id,
+                sessionTitle: view.title,
+                title: '会话里有一条提示',
+                body: summary,
+                urgency: 'normal',
+                openUrl: openUrlFor(view.id),
+                dedupeKey: `notice:${view.id}:${summary.slice(0, 32)}`,
+              })
+            }
             break
           }
           case 'approval/asked': {

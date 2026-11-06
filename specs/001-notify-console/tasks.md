@@ -454,22 +454,22 @@ V5a = 工作中（T038、T039、T051、T052）。
 
 **Independent Test**: 让 target-monitor 触发一次「可能卡住」→ 收到「提示」类通知，会话内提示仍在。
 
-- [ ] T066 [P] [US8] notice 识别测试 `plugin/tests/notices.test.ts`
-  - [ ] `source.kind === 'target-monitor'` 且 `form === 'notice'` → 生成 `kind:"notice"`，正文取 `source.summary`
-  - [ ] 未知 `source.kind` → 不生成（白名单）
-  - [ ] 文案任意变化仍识别（只依赖 kind 与 form）
+- [x] T066 [P] [US8] notice 识别测试 `plugin/tests/notices.test.ts`
+  - [x] `source.kind === 'target-monitor'` 且 `form === 'notice'` → 生成 `kind:"notice"`，正文取 `source.summary`
+  - [x] 未知 `source.kind` → 不生成（白名单）
+  - [x] 文案任意变化仍识别（只依赖 kind 与 form）
 
-- [ ] T067 [US8] notice 映射实现 `plugin/src/notices.ts`
-  - [ ] 白名单默认含 `target-monitor`；可通过配置增删
-  - [ ] T066 转绿
+- [x] T067 [US8] notice 映射实现 `plugin/src/notices.ts`
+  - [x] 白名单默认含 `target-monitor`；可通过配置增删
+  - [x] T066 转绿
 
-- [ ] T068 [US8] 接线与开关 `plugin/src/index.ts` + `config.ts`
-  - [ ] `user/message` 事件中识别 notice 并写通知行；受 `notice` 组开关控制
-  - [ ] 手工：触发 target-monitor 提醒后收到通知，关掉该组后不再收到
+- [x] T068 [US8] 接线与开关 `plugin/src/index.ts` + `config.ts`
+  - [x] `user/message` 事件中识别 notice 并写通知行；受 `notice` 组开关控制
+  - [x] 手工：触发 target-monitor 提醒后收到通知，关掉该组后不再收到
 
-- [ ] T069 [US8] 反向不污染校验
-  - [ ] `grep -rn "agent\.\(inject\|steer\|followup\)" plugin/src` 无输出
-  - [ ] 代码审阅确认插件只 append spool，不写会话
+- [x] T069 [US8] 反向不污染校验
+  - [x] `grep -rn "agent\.\(inject\|steer\|followup\)" plugin/src` 无输出
+  - [x] 代码审阅确认插件只 append spool，不写会话
 
 ---
 

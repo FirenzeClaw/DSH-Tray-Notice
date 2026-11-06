@@ -168,6 +168,39 @@ describe('会话事件的处理', () => {
     wiring.dispose()
   })
 
+  it('notice 形态的 user/message 抬成通知', () => {
+    const spool = collector()
+    const host = fakeHost()
+    const wiring = wire(host, createLogger(undefined, 'test'), spool, fixedNow)
+
+    host.emit('session/event', makeSession('s-1'), {
+      type: 'user/message',
+      data: {
+        source: { kind: 'target-monitor', form: 'notice', summary: '你可能卡住了' },
+      },
+    })
+
+    const notification = spool.rows.find((row) => row.type === 'notification')
+    assert.ok(notification, '应当写出一条通知')
+    assert.equal(notification.type === 'notification' ? notification.kind : '', 'notice')
+    assert.equal(notification.type === 'notification' ? notification.body : '', '你可能卡住了')
+    wiring.dispose()
+  })
+
+  it('未知 kind 的 notice 不抬成通知', () => {
+    const spool = collector()
+    const host = fakeHost()
+    const wiring = wire(host, createLogger(undefined, 'test'), spool, fixedNow)
+
+    host.emit('session/event', makeSession('s-1'), {
+      type: 'user/message',
+      data: { source: { kind: 'unknown-plugin', form: 'notice', summary: 'x' } },
+    })
+
+    assert.equal(spool.rows.filter((row) => row.type === 'notification').length, 0)
+    wiring.dispose()
+  })
+
   it('子会话结束会解开父会话的挂起', () => {
     const spool = collector()
     const host = fakeHost()
