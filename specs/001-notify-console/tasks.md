@@ -142,15 +142,15 @@ description: "Task list for 托盘通知控制台"
   - [x] 父会话在 2 秒内恢复 → 取消挂起，不产出通知
   - [x] 挂起超过 15 分钟 → 丢弃且不产出（记一条日志）
 
-- [ ] T018 [P] [US1] 托盘展示模型测试 `dsh_tray/tests/test_intents.py`
-  - [ ] 同 `dedupeKey` 且 10 秒内第二条被丢弃；11 秒后允许
-  - [ ] `urgency` 映射：critical → 不自动消失，normal → 按系统默认
-  - [ ] `kind:"test"` 不受组开关控制、不计入历史统计
+- [x] T018 [P] [US1] 托盘展示模型测试 `dsh_tray/tests/test_intents.py`
+  - [x] 同 `dedupeKey` 且 10 秒内第二条被丢弃；11 秒后允许
+  - [x] `urgency` 映射：critical → 不自动消失，normal → 按系统默认
+  - [x] `kind:"test"` 不受组开关控制、不计入历史统计
 
-- [ ] T019 [P] [US1] 投递后端测试 `dsh_tray/tests/test_delivery.py`
-  - [ ] 注入假 runner：断言 `gdbus` 命令行含 `Notify`、app_name、summary、body、actions 数组
-  - [ ] runner 返回非零 → `deliver()` 返回 `False` 且不抛异常
-  - [ ] 断言中**不出现**任何令牌字符串
+- [x] T019 [P] [US1] 投递后端测试 `dsh_tray/tests/test_delivery.py`
+  - [x] 注入假 runner：断言 `gdbus` 命令行含 `Notify`、app_name、summary、body、actions 数组
+  - [x] runner 返回非零 → `deliver()` 返回 `False` 且不抛异常
+  - [x] 断言中**不出现**任何令牌字符串
 
 ### Implementation for User Story 1
 
@@ -177,18 +177,18 @@ description: "Task list for 托盘通知控制台"
   - [x] 所有监听器包 try/catch，异常只记日志
   - [x] 单测用假 ctx 断言调用序列「write 在 next 之前」
 
-- [ ] T024 [US1] 托盘投递后端 `dsh_tray/notify/delivery.py`
-  - [ ] `deliver(entry) -> bool`；按 `platform.backend` 分派；失败返回 False（FR-012）
-  - [ ] T019 转绿
+- [x] T024 [US1] 托盘投递后端 `dsh_tray/notify/delivery.py`
+  - [x] `deliver(entry) -> bool`；按 `platform.backend` 分派；失败返回 False（FR-012）
+  - [x] T019 转绿
 
 - [ ] T025 [US1] Linux 通知实现 `dsh_tray/platform/linux.py`（投递部分）
   - [ ] `gdbus call --session … Notify`：app_name `DSH-Tray`、replaces_id `uint32:0`、icon `""`、summary、body、actions `['default','打开会话']`、hints `{}`、`expire_timeout`（critical=0，normal=5000）
   - [ ] `gdbus` 不存在 → 回退 `notify-send`（无动作）；两者都无 → 返回 False
   - [ ] 命令构造断言通过；`notify-send` 回退路径手工验证一次
 
-- [ ] T026 [US1] 托盘展示模型 `dsh_tray/notify/intents.py`
-  - [ ] `accept(entry) -> bool`（10 秒去重窗口）、`to_display(entry)`（类别、相对时间）
-  - [ ] T018 转绿
+- [x] T026 [US1] 托盘展示模型 `dsh_tray/notify/intents.py`
+  - [x] `accept(entry) -> bool`（10 秒去重窗口）、`to_display(entry)`（类别、相对时间）
+  - [x] T018 转绿
 
 - [ ] T027 [US1] 通知历史写入 `dsh_tray/notify/history.py`（最小版）
   - [ ] `append(entry)` 原子写 `notifications.json`（临时文件 + `replace`），上限 500 条
