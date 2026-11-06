@@ -11,6 +11,17 @@
 - 初始化日期：2026-11-06
 <!-- /AUTO:PROJECT-META -->
 
+<!-- SPECKIT START -->
+## 当前规格
+
+- 规格：`specs/001-notify-console/spec.md`（托盘通知控制台，S1 通知管线 + S2 面板）
+- 实现计划：`specs/001-notify-console/plan.md`（6 个垂直切片 V1–V6，3 个检查点）
+- 设计制品：`research.md`（实测探针与选型）/ `data-model.md`（跨进程数据形状）/
+  `contracts/contracts.md`（spool、插件接线、平台后端、深链）/ `quickstart.md`
+- 交互基准：`design/notification-panel.html`（实现对照它验收）
+- 多平台底座（S3）尚未立规格
+<!-- SPECKIT END -->
+
 <!-- AUTO:STRUCTURE -->
 ## 目录结构
 
