@@ -15,8 +15,10 @@ from PyQt6.QtCore import QObject, QRunnable, QThreadPool, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QMenu, QMessageBox, QSystemTrayIcon
 
-from . import icons
-from .lifecycle import Instance, Lifecycle, LifecycleResult, State
+from .. import icons
+from ..lifecycle import Instance, Lifecycle, LifecycleResult, State
+from ..notify.consumer import Consumer
+from ..notify.log import Logger, default_log_path
 
 #: 探测外部启停的间隔。2 s 足够让手动启动在托盘上"很快"出现，
 #: 又不至于让 /proc 扫描变成可观测的负担。
@@ -104,6 +106,16 @@ class TrayApp:
         self._poll_timer.setInterval(POLL_INTERVAL_MS)
         self._poll_timer.timeout.connect(self._refresh)
 
+        # 通知管线：消费 spool、投递系统通知、写历史。
+        # 与状态轮询分开计时——通知要快（200 ms），状态探测 2 s 足够。
+        self._logger = Logger(default_log_path(), "tray")
+        self._consumer = Consumer(logger=self._logger)
+        self._notify_unavailable = False
+        self._missed_total = 0
+        self._notify_timer = QTimer()
+        self._notify_timer.setInterval(self._consumer.next_interval_ms(False))
+        self._notify_timer.timeout.connect(self._on_notify_tick)
+
     # ------------------------------------------------------------------ 生命周期
 
     def show(self) -> None:
@@ -111,6 +123,12 @@ class TrayApp:
         self._refresh()
         self._tray.show()
         self._poll_timer.start()
+        # 先补投上次缺席期间的事件，再进入常规轮询。顺序不能反：反了会让补投
+        # 条目混在实时条目里，「错过 N 条」就算不准。
+        self._missed_total = self._consumer.replay_pending()
+        if self._missed_total > 0:
+            self._logger.info(f"补投 {self._missed_total} 条")
+        self._notify_timer.start()
 
     def _refresh(self) -> None:
         """按当前探测结果重画图标、tooltip 与菜单可用性。"""
@@ -131,7 +149,10 @@ class TrayApp:
         else:
             self._tray.setIcon(self._icon_idle)
 
-        self._tray.setToolTip(self._tooltip(state, instance, error))
+        tooltip = self._tooltip(state, instance, error)
+        if self._notify_unavailable:
+            tooltip = f"{tooltip}\n通知不可用：系统通知服务没有响应"
+        self._tray.setToolTip(tooltip)
 
         self._action_open.setEnabled(running)
         self._action_start.setEnabled(
@@ -157,6 +178,41 @@ class TrayApp:
         if state is State.FAILED:
             return f"DSH 启动失败：{error}" if error else "DSH 启动失败"
         return "DSH 未运行"
+
+    # ------------------------------------------------------------------ 通知
+
+    def _on_notify_tick(self) -> None:
+        """一轮通知消费：读 spool、投递、入库，并按 DSH 状态调整间隔。
+
+        投递失败只置标记、不抛异常——通知是旁路，不该让托盘看起来坏了。
+        """
+        running = self._lifecycle.state is State.RUNNING
+        try:
+            result = self._consumer.poll(dsh_running=running)
+        except Exception as error:  # noqa: BLE001 - 消费失败不该中断托盘
+            self._logger.error(f"通知消费失败：{error}")
+            return
+
+        interval = self._consumer.next_interval_ms(running)
+        if self._notify_timer.interval() != interval:
+            self._notify_timer.setInterval(interval)
+
+        if result.stored > 0 and result.delivered == 0:
+            # 有事件但一条都没投出去：多半是通知服务不可用。
+            if not self._notify_unavailable:
+                self._logger.warn("系统通知不可用，后续只入库")
+                self._notify_unavailable = True
+                state, instance = self._lifecycle.state, self._lifecycle.instance
+                self._render(state, instance, self._lifecycle.last_error)
+        elif result.delivered > 0 and self._notify_unavailable:
+            self._notify_unavailable = False
+            state, instance = self._lifecycle.state, self._lifecycle.instance
+            self._render(state, instance, self._lifecycle.last_error)
+
+    @property
+    def missed_total(self) -> int:
+        """启动时补投的条数（面板顶部提示用）。"""
+        return self._missed_total
 
     # ------------------------------------------------------------------ 交互
 
@@ -252,6 +308,7 @@ class TrayApp:
     def _on_quit(self) -> None:
         """退出托盘。不停止 DSH：托盘和 DSH 的生命周期是分开的。"""
         self._poll_timer.stop()
+        self._notify_timer.stop()
         self._tray.hide()
         self._quit()
 

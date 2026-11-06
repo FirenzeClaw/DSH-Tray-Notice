@@ -200,10 +200,10 @@ description: "Task list for 托盘通知控制台"
   - [x] DSH 未运行时降到 1s 轮询，起来后恢复 200ms；**DSH 重启不重复投递已消费区间**（FR-036）
   - [x] 单测注入假 spool/后端，断言「失败仍入库」「间隔切换」「重启后不重复」
 
-- [ ] T029 [US1] 接入托盘主程序 `dsh_tray/ui.py`
-  - [ ] `TrayApp.__init__` 创建 consumer，`show()` 后启动，`quit` 时停止
-  - [ ] backend 全程失败时 tooltip 增加「通知不可用」
-  - [ ] `./scripts/dsh-tray.sh` 启动后 `notifications.json` 出现条目
+- [x] T029 [US1] 接入托盘主程序 `dsh_tray/ui/tray.py`
+  - [x] `dsh_tray/ui/tray.py` 的 `TrayApp.__init__` 创建 consumer，`show()` 后启动，`quit` 时停止
+  - [x] backend 全程失败时 tooltip 增加「通知不可用」
+  - [x] `./scripts/dsh-tray.sh` 启动后 `notifications.json` 出现条目
 
 **Checkpoint 1（对齐 plan.md）**: `tail events.jsonl` 两类行齐备；审批 critical 通知不自动消失；完成 normal 通知；`--selftest` 仍 10/10；kill dsh 后自动接上且不重复消费。**与人审查后再继续。**
 
@@ -312,12 +312,12 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [ ] 主操作随状态切换；接管态显示琥珀提示；失败态显示占用者
   - [ ] T040 中与控制区相关的断言转绿
 
-- [ ] T045 [US3] 控制区动作接线 `dsh_tray/ui/control.py` + `dsh_tray/ui.py`
+- [ ] T045 [US3] 控制区动作接线 `dsh_tray/ui/control.py` + `dsh_tray/ui/tray.py`
   - [ ] 启动/停止/重启/打开复用既有 `Lifecycle` 与 `_confirm`；危险操作默认按钮为「取消」
   - [ ] 进行中禁用全部按钮
   - [ ] 手工：停止时出现确认框且默认取消；启动中按钮全灰
 
-- [ ] T046 [US3] 左键开面板 + 右键菜单 `dsh_tray/ui.py`
+- [ ] T046 [US3] 左键开面板 + 右键菜单 `dsh_tray/ui/tray.py`
   - [ ] `Trigger` → 面板；`Context` → 既有菜单 + 新增「打开面板」
   - [ ] 手工：左键出面板，右键出菜单且含新条目
 
@@ -442,7 +442,7 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [ ] 补投条目进未查看并带「补投」标记
   - [ ] T063 转绿 + 手工按 Independent Test 走一遍
 
-- [ ] T065 [US7] 汇总提示 `dsh_tray/ui.py`
+- [ ] T065 [US7] 汇总提示 `dsh_tray/ui/tray.py`
   - [ ] 补投 > 0 时 tooltip 与面板顶部出现「错过 N 条通知」一次性提示，用户查看后消失
   - [ ] 手工：补投后提示出现，点开面板后不再重复提示
 
