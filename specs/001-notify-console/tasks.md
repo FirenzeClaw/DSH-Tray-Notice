@@ -406,14 +406,14 @@ V5a = 工作中（T038、T039、T051、T052）。
 
 ### Implementation for User Story 5
 
-- [ ] T059 [US5] 设置分区渲染 `plugin/src/client/index.ts`（设置部分）
-  - [ ] 预设分段控件（安静/标准/详细）+ 四组开关 + 「需要你」组内两子项 + 「发送测试通知」按钮 + 「自定义」标记
-  - [ ] 冲突（409）时提示「设置已被其他窗口修改，请刷新」
-  - [ ] 手工：设置页出现「DSH 通知」分区，各控件可操作
+- [x] T059 [US5] 设置分区渲染 `plugin/src/client/index.ts`（设置部分）
+  - [x] 预设分段控件（安静/标准/详细）+ 四组开关 + 「需要你」组内两子项 + 「发送测试通知」按钮 + 「自定义」标记
+  - [x] 冲突（409）时提示「设置已被其他窗口修改，请刷新」
+  - [x] 手工：设置页出现「DSH 通知」分区，各控件可操作
 
-- [ ] T060 [US5] 设置读写接线 `plugin/src/client/index.ts`
-  - [ ] 挂载 `describe()` → 渲染；变更 `update(ns, patch, revision)`
-  - [ ] 手工：改开关后刷新页面值保留；两窗口并发保存时后者被拒并提示
+- [x] T060 [US5] 设置读写接线 `plugin/src/client/index.ts`
+  - [x] 挂载 `describe()` → 渲染；变更 `update(ns, patch, revision)`
+  - [x] 手工：改开关后刷新页面值保留；两窗口并发保存时后者被拒并提示
 
 - [x] T061 [US5] 测试通知 `plugin/src/index.ts`
   - [x] 按钮触发一条 `kind:"test"` 的通知行（绕过组开关、不计入历史统计）
