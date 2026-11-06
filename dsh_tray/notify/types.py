@@ -26,6 +26,9 @@ KNOWN_KINDS = frozenset(
         "error",
         "blocked",
         "max-tokens",
+        # FR-003 的「取消」「中断」两类，归 other 组、默认不通知。
+        "cancelled",
+        "interrupted",
         "job",
         "goal",
         "subagent",

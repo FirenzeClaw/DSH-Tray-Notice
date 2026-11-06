@@ -19,6 +19,10 @@ export const SCHEMA_VERSION = 1
  * 通知类别。
  *
  * 字面量联合而非 enum：编译期就能挡住拼错，产物里也不留运行时对象。
+ *
+ * `cancelled` / `interrupted` 对应 FR-003 的「取消」「中断」两类：spec 要求轮次结束
+ * 按原因分六类，而初版契约只列了四类，这里补齐。两者默认不通知（归 `other` 组，
+ * 该组在安静/标准预设下关闭）。
  */
 export type NotificationKind =
   | 'needs-approval'
@@ -27,6 +31,8 @@ export type NotificationKind =
   | 'error'
   | 'blocked'
   | 'max-tokens'
+  | 'cancelled'
+  | 'interrupted'
   | 'job'
   | 'goal'
   | 'subagent'

@@ -94,17 +94,17 @@ description: "Task list for 托盘通知控制台"
   - [x] `read_new()` 返回 `(notifications, session_states, skipped_count)`
   - [x] `test_spool.py` 覆盖「增量读」「轮转后重读」「坏行跳过」
 
-- [ ] T012 [P] 插件侧预设与配置 schema `plugin/src/config.ts`
-  - [ ] 四组开关结构按 contracts C2：`needs-you{approval,answer}`、`done-error`、`notice`、`other`
-  - [ ] 三预设默认值（quiet = needs-you + notice；standard = + done-error；verbose = 全四组）
-  - [ ] 导出 `resolveGroups(preset, overrides)` 纯函数，返回最终开关集合
-  - [ ] `plugin/tests/config.test.ts` 断言三预设的包含关系与 override 优先级
+- [x] T012 [P] 插件侧预设与配置 schema `plugin/src/config.ts`
+  - [x] 四组开关结构按 contracts C2：`needs-you{approval,answer}`、`done-error`、`notice`、`other`
+  - [x] 三预设默认值（quiet = needs-you + notice；standard = + done-error；verbose = 全四组）
+  - [x] 导出 `resolveGroups(preset, overrides)` 纯函数，返回最终开关集合
+  - [x] `plugin/tests/config.test.ts` 断言三预设的包含关系与 override 优先级
 
-- [ ] T013 [P] 事件分类常量 `plugin/src/kinds.ts`
-  - [ ] `TurnEndReason` 七种 → `kind` 映射；`kind` → 四组归属
-  - [ ] `aborted` / `interrupted` / `forked` 归 `other` 组
-  - [ ] `job` / `goal` / `subagent` / `tool-failure` 均归 `other` 组
-  - [ ] `plugin/tests/events.test.ts` 中「七种 reason 全覆盖」用例通过
+- [x] T013 [P] 事件分类常量 `plugin/src/kinds.ts`
+  - [x] `TurnEndReason` 七种 → `kind` 映射；`kind` → 四组归属
+  - [x] `aborted` / `interrupted` / `forked` 归 `other` 组
+  - [x] `job` / `goal` / `subagent` / `tool-failure` 均归 `other` 组
+  - [x] `plugin/tests/events.test.ts` 中「七种 reason 全覆盖」用例通过
 
 - [x] T014 [P] 两侧日志工具 `plugin/src/log.ts` 与 `dsh_tray/notify/log.py`
   - [x] 统一格式 `<iso> <level> <component> <msg>`；单文件 1 MiB 轮转；写日志失败静默
