@@ -82,11 +82,11 @@ description: "Task list for 托盘通知控制台"
   - [x] `from_json` 对缺字段/错类型返回 `None` 而不是抛异常
   - [x] `test_types.py` 覆盖「正常行」「缺 body」「v 不匹配」三例
 
-- [ ] T010 [P] 插件侧 spool 写入 `plugin/src/spool.ts`
-  - [ ] `append(row)`：JSON 单行 + `\n`；写前若文件 > 1 MiB 则改名 `events.jsonl.1` 后新建
-  - [ ] 单行超 64 KiB 时**截断 `body` 字段**（保持整行合法），不是丢弃整行
-  - [ ] 写失败只记日志、绝不抛出
-  - [ ] `plugin/tests/spool.test.ts` 覆盖轮转、截断、写失败吞掉三例
+- [x] T010 [P] 插件侧 spool 写入 `plugin/src/spool.ts`
+  - [x] `append(row)`：JSON 单行 + `\n`；写前若文件 > 1 MiB 则改名 `events.jsonl.1` 后新建
+  - [x] 单行超 64 KiB 时**截断 `body` 字段**（保持整行合法），不是丢弃整行
+  - [x] 写失败只记日志、绝不抛出
+  - [x] `plugin/tests/spool.test.ts` 覆盖轮转、截断、写失败吞掉三例
 
 - [ ] T011 [P] 托盘侧 spool 读取 `dsh_tray/notify/spool.py`
   - [ ] 偏移持久化 `~/.local/state/dsh-tray/spool-offset.json`，内容 `{inode, offset}`；inode 变化 → 从 0 重读
@@ -106,10 +106,10 @@ description: "Task list for 托盘通知控制台"
   - [ ] `job` / `goal` / `subagent` / `tool-failure` 均归 `other` 组
   - [ ] `plugin/tests/events.test.ts` 中「七种 reason 全覆盖」用例通过
 
-- [ ] T014 [P] 两侧日志工具 `plugin/src/log.ts` 与 `dsh_tray/notify/log.py`
-  - [ ] 统一格式 `<iso> <level> <component> <msg>`；单文件 1 MiB 轮转；写日志失败静默
-  - [ ] 令牌脱敏：`token=` 后的值替换为 `***`
-  - [ ] 两侧各一条单测断言 `token=abc` → `token=***`
+- [x] T014 [P] 两侧日志工具 `plugin/src/log.ts` 与 `dsh_tray/notify/log.py`
+  - [x] 统一格式 `<iso> <level> <component> <msg>`；单文件 1 MiB 轮转；写日志失败静默
+  - [x] 令牌脱敏：`token=` 后的值替换为 `***`
+  - [x] 两侧各一条单测断言 `token=abc` → `token=***`
 
 - [ ] T015 插件设置读取与热更新 `plugin/src/settings.ts`
   - [ ] 挂载时读 ns=`tray-notify`，订阅变更事件后重读并重建策略对象
