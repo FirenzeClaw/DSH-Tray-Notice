@@ -72,15 +72,15 @@ description: "Task list for 托盘通知控制台"
 
 **Purpose**: 跨进程契约与两侧的基础原语。**任何用户故事开工前必须完成。**
 
-- [ ] T008 [P] 定义 TS 侧契约类型 `plugin/src/types.ts`
-  - [ ] `NotificationEntry`、`SessionStateEntry`、`SessionRow` 字段与 `data-model.md` 逐字对齐（含 `v: 1`）
-  - [ ] `kind` 用字面量联合类型，编译期挡住拼错
-  - [ ] `npx tsc -p plugin/tsconfig.json --noEmit` 通过
+- [x] T008 [P] 定义 TS 侧契约类型 `plugin/src/types.ts`
+  - [x] `NotificationEntry`、`SessionStateEntry`、`SessionRow` 字段与 `data-model.md` 逐字对齐（含 `v: 1`）
+  - [x] `kind` 用字面量联合类型，编译期挡住拼错
+  - [x] `npx tsc -p plugin/tsconfig.json --noEmit` 通过
 
-- [ ] T009 [P] 定义 Py 侧契约类型 `dsh_tray/notify/types.py`
-  - [ ] `@dataclass(frozen=True)` 的 `NotificationEntry` / `SessionRow` / `SessionState`，字段名与 T008 相同（camel↔snake 映射集中在 `from_json`）
-  - [ ] `from_json` 对缺字段/错类型返回 `None` 而不是抛异常
-  - [ ] `test_types.py` 覆盖「正常行」「缺 body」「v 不匹配」三例
+- [x] T009 [P] 定义 Py 侧契约类型 `dsh_tray/notify/types.py`
+  - [x] `@dataclass(frozen=True)` 的 `NotificationEntry` / `SessionRow` / `SessionState`，字段名与 T008 相同（camel↔snake 映射集中在 `from_json`）
+  - [x] `from_json` 对缺字段/错类型返回 `None` 而不是抛异常
+  - [x] `test_types.py` 覆盖「正常行」「缺 body」「v 不匹配」三例
 
 - [ ] T010 [P] 插件侧 spool 写入 `plugin/src/spool.ts`
   - [ ] `append(row)`：JSON 单行 + `\n`；写前若文件 > 1 MiB 则改名 `events.jsonl.1` 后新建
