@@ -17,7 +17,7 @@
 | `type` | str | ✓ | 固定 `"notification"` |
 | `id` | str | ✓ | UUID，托盘侧主键 |
 | `ts` | str | ✓ | ISO-8601 UTC，事件发生时刻 |
-| `kind` | str | ✓ | `needs-approval` / `needs-answer` / `done` / `error` / `blocked` / `max-tokens` / `job` / `goal` / `subagent` / `tool-failure` / `notice` / `test` |
+| `kind` | str | ✓ | `needs-approval` / `needs-answer` / `done` / `error` / `blocked` / `max-tokens` / `cancelled` / `interrupted` / `job` / `goal` / `subagent` / `tool-failure` / `notice` / `test` |
 | `sessionId` | str | ✓ | DSH 会话标识（深链定位用） |
 | `sessionTitle` | str | ✓ | 会话标题（显示用） |
 | `workspace` | str | — | 工作目录短名，次要信息 |
@@ -82,7 +82,7 @@
 | `needs-you` | 需要你 | `needs-approval`、`needs-answer` | `approval`、`answer`（可分别关） |
 | `done-error` | 完成与出错 | `done`、`error`、`blocked`、`max-tokens` | — |
 | `notice` | 提示 | `notice` | — |
-| `other` | 其它信息性 | `job`、`goal`、`subagent`、`tool-failure`、压缩 / 取消 / 中断 | — |
+| `other` | 其它信息性 | `job`、`goal`、`subagent`、`tool-failure`、`cancelled`、`interrupted` | — |
 
 | 预设 | 开启的组 |
 |---|---|
@@ -94,6 +94,12 @@
 
 > `kind:"test"` 是设置页「发送测试通知」的内部验证用类别，不归属任何组、不受开关控制、
 > 不计入历史统计（避免污染 SC-003 的计数）。
+
+> **实现期修正（2026-11-06）**：初版契约的 kind 枚举只有四类轮次结束（`done`/`error`/
+> `blocked`/`max-tokens`），而 FR-003 要求按原因分**六类**（含取消、中断）。已补
+> `cancelled`（对应 `turn/end(aborted)` 与 `forked`）与 `interrupted`（对应
+> `turn/end(interrupted)`），两者归 `other` 组，因此安静与标准预设下默认不通知。
+> 协议版本仍为 `v:1`（未发布，扩展安全）。
 
 ## 存储位置与生命周期
 

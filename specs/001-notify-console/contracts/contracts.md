@@ -18,6 +18,8 @@ data-model.md 的协议版本，并在 CHANGELOG 记录。
 - **行类型**: `"notification"`（data-model.md 的 NotificationEntry）与
   `"session-state"`（SessionStateEntry）。未知 `type` 或 `v` ≠ 1 的行：跳过 + 计数，
   单条日志汇总，不报错。
+- **kind 枚举**见 data-model.md；实现期补了 `cancelled` / `interrupted`（FR-003 六类）。
+  托盘对未知 kind 按「其它」处理，不丢弃——插件可能先于托盘升级。
 
 ### 行示例
 
@@ -80,15 +82,28 @@ bodyLimit: number             // 正文截断长度（默认 200）
 
 ```
 NotificationBackend         # 投递
-  deliver(entry) -> delivered: bool
-  on_action(callback(notif_id, action_key))   # 点击回执，平台可选
+  is_available() -> bool
+  deliver(entry) -> DeliveryResult   # delivered / notification_id / reason
 
 WindowAnchor                # 面板锚点
-  anchor_for(tray) -> QPoint | None   # None → 用配置角落
+  anchor_for(tray_geometry, screen) -> (x, y)
 
 ProcessSampler              # 概览
-  sample_once() -> list[ProcessSample]   # 含首次 null CPU
+  sample(root_pid) -> list[ProcessSample]   # 首次 CPU 为 None
+
+ActionCallback = Callable[[int, str], None]   # (通知 id, 动作键)
 ```
+
+**实现期修正（2026-11-06）**，三处与初版契约不同，均以代码为准：
+
+1. `deliver()` 返回 `DeliveryResult`（含 `notification_id`）而不是 `bool`：托盘要用这个
+   id 建立「通知 id → 会话」映射，否则点击回执只有 id 无法反查会话。失败语义不变
+   （不抛错、`delivered=False`）。
+2. 点击回执不是后端方法 `on_action()`，而是 `LinuxActionListener(on_action, service_filter)`
+   构造时注入回调。原因是 QtDBus 的槽必须在 QObject 上、且要 `@pyqtSlot` 修饰，
+   把它塞进后端接口会让每个平台各自造一套 QObject。
+3. `anchor_for` 收 `(tray_geometry, screen)` 而不是 `tray`：锚点只依赖矩形与屏幕可用区，
+   传整个托盘对象会让这个纯计算无法在无 GUI 环境下测试。
 
 **Linux 实现**: gdbus 投递 + QtDBus ActionInvoked 订阅；`/proc` 采样；锚点 D2 策略。
 **Windows 实现**（S3）: PowerShell toast（AUMID + 开始菜单快捷方式，`launch` 参数即深链）；

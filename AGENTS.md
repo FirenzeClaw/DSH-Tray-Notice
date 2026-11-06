@@ -140,6 +140,9 @@ DSH-Tray&Notice/
 - **通知与托盘的分工不得混**：面板负责"看状态 + 操作 + 回会话"，
   系统通知负责"你不在电脑前也能知道"。两者共用同一份数据，但不共用代码路径。
 - **概览页的进程采样必须自采**，不能走插件上报——DSH 卡死时正是最需要看进程的时候。
+- **跨进程只通过 spool 耦合**：`plugin/src/types.ts` 与 `dsh_tray/notify/types.py` 各写
+  一份契约类型（刻意不共享代码），改字段必须同时改两侧并把 `SCHEMA_VERSION` / `v` 加一。
+  契约文档是 `specs/001-notify-console/contracts/contracts.md`，数据形状见 `data-model.md`。
 
 ## Git 约定
 
@@ -157,6 +160,10 @@ DSH-Tray&Notice/
 
 ## 质量门
 
-- 没有失败的测试就不写生产代码（TDD），既有 `--selftest` 是回归基线：重构后必须仍 10/10
+- 没有失败的测试就不写生产代码（TDD）
+- 三条回归基线，重构后必须全部保持：
+  - `python3 -m unittest discover -s dsh_tray/tests -t .`（当前 186 tests）
+  - `cd plugin && npm test`（当前 116 tests）
+  - `./dsh-tray.py --selftest`（10/10，竞态行为）
 - 不审查不合并：正确性 / 可读性 / 架构 / 安全 / 性能五轴
 - 详细原则见 `.specify/memory/constitution.md`

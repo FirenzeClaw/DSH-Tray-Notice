@@ -202,6 +202,14 @@ design/notification-panel.html 交互设计稿
 icons/                         桌面图标（方形画布版）
 ```
 
+## 设计取舍从哪来
+
+- `research/harness-notifications.md`：Claude Code / Codex / Gemini CLI / OpenCode 四家的
+  通知事件模型调研，以及「DSH 本身无桌面通知、生态里四个第三方插件都只直推系统通知」的
+  结论——与本仓库「插件只写策略、托盘统一投递」的差异点由此而来。
+- `docs/design.md`：托盘与面板的设计共识（含实测环境事实与通知行为决策表）。
+- `specs/001-notify-console/`：规格、计划、契约、数据模型、任务与验收记录。
+
 ## 开发
 
 ```sh
