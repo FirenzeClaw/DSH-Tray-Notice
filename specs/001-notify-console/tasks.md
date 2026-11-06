@@ -269,21 +269,21 @@ V5a = 工作中（T038、T039、T051、T052）。
 
 ### Tests for User Story 3
 
-- [ ] T037 [P] [US3] 锚点策略测试 `dsh_tray/tests/test_anchor.py`
-  - [ ] `tray.geometry()` 有效 → 面板贴图标（右下对齐）
-  - [ ] 返回 0x0 → 用屏幕右上角，且不越出 `availableGeometry`
-  - [ ] 注入假 geometry 与假 screen 的两例通过
+- [x] T037 [P] [US3] 锚点策略测试 `dsh_tray/tests/test_anchor.py`
+  - [x] `tray.geometry()` 有效 → 面板贴图标（右下对齐）
+  - [x] 返回 0x0 → 用屏幕右上角，且不越出 `availableGeometry`
+  - [x] 注入假 geometry 与假 screen 的两例通过
 
 - [ ] T038 [P] [US3] 工作时长与页面测试 `dsh_tray/tests/test_working.py`
   - [ ] 给定 `turnStartedAt` 与假时钟 → `elapsed()` 返回正确秒数
   - [ ] 快照刷新后时长不倒退（新基准更晚则以新值为准，否则保留旧值）
   - [ ] 离屏实例化 `WorkingPage`，断言两行渲染出会话名、轮次、时长文本
 
-- [ ] T039 [P] [US3] 托盘会话状态表测试 `dsh_tray/tests/test_sessionstate.py`
-  - [ ] `session-state` 行 → 活动会话表（含 `turnStartedAt` 基准）
-  - [ ] `origin == "subagent"` 且未开启子任务时被过滤
-  - [ ] 快照为全量替换：新快照缺少的会话从表中移除
-  - [ ] `state == "waiting-user"` 的会话带等待标记
+- [x] T039 [P] [US3] 托盘会话状态表测试 `dsh_tray/tests/test_sessionstate.py`
+  - [x] `session-state` 行 → 活动会话表（含 `turnStartedAt` 基准）
+  - [x] `origin == "subagent"` 且未开启子任务时被过滤
+  - [x] 快照为全量替换：新快照缺少的会话从表中移除
+  - [x] `state == "waiting-user"` 的会话带等待标记
 
 - [ ] T040 [P] [US3] 面板离屏测试 `dsh_tray/tests/test_panel.py`
   - [ ] 四个标签宽度两两相差 ≤ 1px；文字水平居中（加/不加计数都不偏移）
@@ -338,10 +338,10 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [ ] 「全部标为已查看」（双勾图标）与「清空已查看」（垃圾桶图标）均需二次确认
   - [ ] 手工：两操作生效且清空不影响未查看
 
-- [ ] T051 [US3] 托盘会话状态表 `dsh_tray/notify/sessionstate.py`
-  - [ ] 把 spool 的 `session-state` 行折成活动会话表；提供 `active()` 与 `elapsed(session_id)`
-  - [ ] origin 过滤与全量替换语义按 T039 的断言实现
-  - [ ] T039 转绿
+- [x] T051 [US3] 托盘会话状态表 `dsh_tray/notify/sessionstate.py`
+  - [x] 把 spool 的 `session-state` 行折成活动会话表；提供 `active()` 与 `elapsed(session_id)`
+  - [x] origin 过滤与全量替换语义按 T039 的断言实现
+  - [x] T039 转绿
 
 - [ ] T052 [US3] 工作中页 `dsh_tray/ui/working.py`
   - [ ] 行渲染：会话名、轮次、当前工具、等待标记；点击行 → 打开该会话
