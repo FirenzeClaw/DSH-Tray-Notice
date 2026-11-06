@@ -190,15 +190,15 @@ description: "Task list for 托盘通知控制台"
   - [x] `accept(entry) -> bool`（10 秒去重窗口）、`to_display(entry)`（类别、相对时间）
   - [x] T018 转绿
 
-- [ ] T027 [US1] 通知历史写入 `dsh_tray/notify/history.py`（最小版）
-  - [ ] `append(entry)` 原子写 `notifications.json`（临时文件 + `replace`），上限 500 条
-  - [ ] 写前用既有 `locks.operation_lock` 串行化
-  - [ ] 单测断言写入后可读回、超 500 条淘汰最旧
+- [x] T027 [US1] 通知历史写入 `dsh_tray/notify/history.py`（最小版）
+  - [x] `append(entry)` 原子写 `notifications.json`（临时文件 + `replace`），上限 500 条
+  - [x] 写前用既有 `locks.operation_lock` 串行化
+  - [x] 单测断言写入后可读回、超 500 条淘汰最旧
 
-- [ ] T028 [US1] 托盘消费循环 `dsh_tray/notify/consumer.py`
-  - [ ] QTimer 200ms → `read_new()` → 去重 → `deliver()` → `history.append()`；投递失败仍入库
-  - [ ] DSH 未运行时降到 1s 轮询，起来后恢复 200ms；**DSH 重启不重复投递已消费区间**（FR-036）
-  - [ ] 单测注入假 spool/后端，断言「失败仍入库」「间隔切换」「重启后不重复」
+- [x] T028 [US1] 托盘消费循环 `dsh_tray/notify/consumer.py`
+  - [x] QTimer 200ms → `read_new()` → 去重 → `deliver()` → `history.append()`；投递失败仍入库
+  - [x] DSH 未运行时降到 1s 轮询，起来后恢复 200ms；**DSH 重启不重复投递已消费区间**（FR-036）
+  - [x] 单测注入假 spool/后端，断言「失败仍入库」「间隔切换」「重启后不重复」
 
 - [ ] T029 [US1] 接入托盘主程序 `dsh_tray/ui.py`
   - [ ] `TrayApp.__init__` 创建 consumer，`show()` 后启动，`quit` 时停止
@@ -295,10 +295,10 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [ ] `mark_read` 后条目仍存在于历史文件（不删除）
   - [ ] 已查看按日期分组渲染出「今天 / 昨天 / 更早」三个组头（用假时钟构造数据）
 
-- [ ] T042 [P] [US6] 历史分组与淘汰测试 `dsh_tray/tests/test_history.py`
-  - [ ] 500 条上限、30 天过期；分组按本地时区
-  - [ ] `clear_read` 只清已查看，不动未查看
-  - [ ] 原子写：并发读写不会读到半截 JSON
+- [x] T042 [P] [US6] 历史分组与淘汰测试 `dsh_tray/tests/test_history.py`
+  - [x] 500 条上限、30 天过期；分组按本地时区
+  - [x] `clear_read` 只清已查看，不动未查看
+  - [x] 原子写：并发读写不会读到半截 JSON
 
 ### Implementation for User Story 3
 
@@ -325,9 +325,9 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [ ] 图标 pixmap 右上叠加圆点 + 数字（≤9 显示数字，>9 显示「9+」）；0 条不叠加
   - [ ] T040 中角标断言转绿
 
-- [ ] T048 [US6] 历史完整实现 `dsh_tray/notify/history.py`
-  - [ ] 淘汰（500 / 30 天）、日期分组、`mark_read`、`clear_read`、原子写
-  - [ ] T042 转绿
+- [x] T048 [US6] 历史完整实现 `dsh_tray/notify/history.py`
+  - [x] 淘汰（500 / 30 天）、日期分组、`mark_read`、`clear_read`、原子写
+  - [x] T042 转绿
 
 - [ ] T049 [US6] 通知列表页 `dsh_tray/ui/notiflist.py`
   - [ ] 未查看/已查看两页；行含类别图标、标题、会话名、相对时间；hover 出现「打开会话 / 标为已查看」
