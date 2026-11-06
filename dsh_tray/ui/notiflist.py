@@ -103,11 +103,18 @@ class NotificationRow(QFrame):
         self.clicked.emit(self._entry.id, self._entry.session_id)
 
 
-class NotificationListPage(QScrollArea):
-    """通知列表（未查看或已查看）。"""
+class NotificationListPage(QWidget):
+    """通知列表（未查看或已查看）。
+
+    顶部有一条工具栏（批量操作），下面是滚动区。工具栏只在对应页出现：
+    「全部标为已查看」只对未查看有意义，「清空已查看」只对已查看有意义。
+    """
 
     entry_clicked = pyqtSignal(str, str)
     """(条目 id, 会话 id)"""
+
+    changed = pyqtSignal()
+    """批量操作后通知外部刷新计数。"""
 
     def __init__(self, only_unread: bool, parent: QWidget | None = None) -> None:
         """构造。
@@ -117,15 +124,31 @@ class NotificationListPage(QScrollArea):
         """
         super().__init__(parent)
         self._only_unread = only_unread
-        self.setWidgetResizable(True)
-        self.setFrameShape(QFrame.Shape.NoFrame)
         self.setObjectName("notifList")
 
-        self._container = QWidget(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        toolbar = QHBoxLayout()
+        toolbar.setContentsMargins(14, 6, 14, 2)
+        toolbar.addStretch(1)
+        self._bulk = QPushButton("全部标为已查看" if only_unread else "清空已查看", self)
+        self._bulk.setObjectName("bulkAction")
+        self._bulk.clicked.connect(self._on_bulk)
+        toolbar.addWidget(self._bulk)
+        outer.addLayout(toolbar)
+
+        self._scroll = QScrollArea(self)
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        outer.addWidget(self._scroll, 1)
+
+        self._container = QWidget(self._scroll)
         self._layout = QVBoxLayout(self._container)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
-        self.setWidget(self._container)
+        self._scroll.setWidget(self._container)
 
     def refresh(self, items: list[history.StoredNotification] | None = None) -> None:
         """重建列表。
@@ -173,6 +196,42 @@ class NotificationListPage(QScrollArea):
         row.clicked.connect(self.entry_clicked.emit)
         row.mark_read_clicked.connect(self._on_mark_read)
         self._layout.addWidget(row)
+
+    def _on_bulk(self) -> None:
+        """批量操作，二次确认后执行。
+
+        两个操作都不可逆（清空会真的删条目、全部已读会让未读计数归零），所以都
+        要确认——面板是临时浮层，误触成本比菜单更高。
+        """
+        from PyQt6.QtWidgets import QMessageBox
+
+        if self._only_unread:
+            question = "把全部未查看标为已查看？"
+            detail = "条目仍会保留在「已查看」里，可以随时翻回。"
+            confirm_label = "全部标为已查看"
+        else:
+            question = "清空全部已查看？"
+            detail = "这会删除这些条目，未查看的不受影响。"
+            confirm_label = "清空"
+
+        box = QMessageBox(self)
+        box.setWindowTitle(question)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setText(question)
+        box.setInformativeText(detail)
+        cancel = box.addButton("取消", QMessageBox.ButtonRole.RejectRole)
+        confirm = box.addButton(confirm_label, QMessageBox.ButtonRole.DestructiveRole)
+        box.setDefaultButton(cancel)
+        box.exec()
+        if box.clickedButton() is not confirm:
+            return
+
+        if self._only_unread:
+            history.mark_all_read()
+        else:
+            history.clear_read()
+        self.refresh()
+        self.changed.emit()
 
     def _on_mark_read(self, entry_id: str) -> None:
         """标为已读并刷新。

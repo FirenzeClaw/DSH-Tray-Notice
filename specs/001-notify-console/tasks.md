@@ -312,18 +312,18 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [x] 主操作随状态切换；接管态显示琥珀提示；失败态显示占用者
   - [x] T040 中与控制区相关的断言转绿
 
-- [ ] T045 [US3] 控制区动作接线 `dsh_tray/ui/control.py` + `dsh_tray/ui/tray.py`
-  - [ ] 启动/停止/重启/打开复用既有 `Lifecycle` 与 `_confirm`；危险操作默认按钮为「取消」
-  - [ ] 进行中禁用全部按钮
-  - [ ] 手工：停止时出现确认框且默认取消；启动中按钮全灰
+- [x] T045 [US3] 控制区动作接线 `dsh_tray/ui/control.py` + `dsh_tray/ui/tray.py`
+  - [x] 启动/停止/重启/打开复用既有 `Lifecycle` 与 `_confirm`；危险操作默认按钮为「取消」
+  - [x] 进行中禁用全部按钮
+  - [x] 手工：停止时出现确认框且默认取消；启动中按钮全灰
 
-- [ ] T046 [US3] 左键开面板 + 右键菜单 `dsh_tray/ui/tray.py`
-  - [ ] `Trigger` → 面板；`Context` → 既有菜单 + 新增「打开面板」
-  - [ ] 手工：左键出面板，右键出菜单且含新条目
+- [x] T046 [US3] 左键开面板 + 右键菜单 `dsh_tray/ui/tray.py`
+  - [x] `Trigger` → 面板；`Context` → 既有菜单 + 新增「打开面板」
+  - [x] 手工：左键出面板，右键出菜单且含新条目
 
-- [ ] T047 [US3] 未读徽标 `dsh_tray/icons.py`
-  - [ ] 图标 pixmap 右上叠加圆点 + 数字（≤9 显示数字，>9 显示「9+」）；0 条不叠加
-  - [ ] T040 中角标断言转绿
+- [x] T047 [US3] 未读徽标 `dsh_tray/icons.py`
+  - [x] 图标 pixmap 右上叠加圆点 + 数字（≤9 显示数字，>9 显示「9+」）；0 条不叠加
+  - [x] T040 中角标断言转绿
 
 - [x] T048 [US6] 历史完整实现 `dsh_tray/notify/history.py`
   - [x] 淘汰（500 / 30 天）、日期分组、`mark_read`、`clear_read`、原子写
@@ -334,9 +334,9 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [x] 点击行 → 标记已查看 + 打开会话
   - [x] T041 转绿
 
-- [ ] T050 [US6] 批量操作 `dsh_tray/ui/notiflist.py`
-  - [ ] 「全部标为已查看」（双勾图标）与「清空已查看」（垃圾桶图标）均需二次确认
-  - [ ] 手工：两操作生效且清空不影响未查看
+- [x] T050 [US6] 批量操作 `dsh_tray/ui/notiflist.py`
+  - [x] 「全部标为已查看」（双勾图标）与「清空已查看」（垃圾桶图标）均需二次确认
+  - [x] 手工：两操作生效且清空不影响未查看
 
 - [x] T051 [US3] 托盘会话状态表 `dsh_tray/notify/sessionstate.py`
   - [x] 把 spool 的 `session-state` 行折成活动会话表；提供 `active()` 与 `elapsed(session_id)`

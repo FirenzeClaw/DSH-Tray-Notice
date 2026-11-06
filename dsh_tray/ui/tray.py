@@ -13,11 +13,17 @@ from typing import Callable
 
 from PyQt6.QtCore import QObject, QRunnable, QThreadPool, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QMenu, QMessageBox, QSystemTrayIcon
+from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from .. import icons
 from ..lifecycle import Instance, Lifecycle, LifecycleResult, State
 from ..notify.click import handle_click
+from ..notify.sessionstate import SessionTable
+from .control import ControlArea
+from .notiflist import NotificationListPage, read_count, unread_count
+from ..platform.linux import LinuxWindowAnchor
+from .panel import PANEL_WIDTH, TAB_READ, TAB_UNREAD, TAB_WORKING, Panel
+from .working import WorkingPage
 from ..notify.consumer import Consumer
 from ..notify.log import Logger, default_log_path
 from ..platform.linux import LinuxActionListener
@@ -80,12 +86,14 @@ class TrayApp:
         self._action_start = QAction("启动 DSH", self._menu)
         self._action_restart = QAction("重启 DSH", self._menu)
         self._action_stop = QAction("停止 DSH", self._menu)
+        self._action_panel = QAction("打开面板", self._menu)
         self._action_quit = QAction("退出托盘", self._menu)
 
         self._action_open.triggered.connect(self._on_open)
         self._action_start.triggered.connect(self._on_start)
         self._action_restart.triggered.connect(self._on_restart)
         self._action_stop.triggered.connect(self._on_stop)
+        self._action_panel.triggered.connect(self.toggle_panel)
         self._action_quit.triggered.connect(self._on_quit)
 
         for action in (
@@ -96,6 +104,7 @@ class TrayApp:
         ):
             self._menu.addAction(action)
         self._menu.addSeparator()
+        self._menu.addAction(self._action_panel)
         self._menu.addAction(self._action_quit)
 
         self._tray.setContextMenu(self._menu)
@@ -118,6 +127,12 @@ class TrayApp:
         self._notified: dict[int, str] = {}
         self._notified_entry: dict[int, str] = {}
         self._action_listener = LinuxActionListener(self._on_notification_action)
+
+        # 面板：左键打开。会话表由消费循环的快照喂养。
+        self._session_table = SessionTable()
+        self._panel: Panel | None = None
+        self._unread = 0
+        self._read = 0
         self._notify_timer = QTimer()
         self._notify_timer.setInterval(self._consumer.next_interval_ms(False))
         self._notify_timer.timeout.connect(self._on_notify_tick)
@@ -153,10 +168,9 @@ class TrayApp:
         # 启动/停止进行中沿用白图标：托盘正在做正事，灰掉反而像失败了。
         transitioning = state in (State.STARTING, State.STOPPING)
 
-        if running or transitioning:
-            self._tray.setIcon(self._icon_running)
-        else:
-            self._tray.setIcon(self._icon_idle)
+        base = self._icon_running if (running or transitioning) else self._icon_idle
+        # 未读角标叠加在同一个图标上：0 条时原样返回，不额外分配 pixmap。
+        self._tray.setIcon(icons.with_badge(base, self._unread))
 
         tooltip = self._tooltip(state, instance, error)
         if self._notify_unavailable:
@@ -188,6 +202,104 @@ class TrayApp:
             return f"DSH 启动失败：{error}" if error else "DSH 启动失败"
         return "DSH 未运行"
 
+    # ------------------------------------------------------------------ 面板
+
+    def _ensure_panel(self) -> Panel:
+        """按需构造面板并挂好三个页面。
+
+        @returns 面板实例
+        """
+        if self._panel is not None:
+            return self._panel
+
+        panel = Panel()
+        control = ControlArea()
+        control.primary_clicked.connect(self._on_panel_primary)
+        control.restart_clicked.connect(self._on_restart)
+        control.stop_clicked.connect(self._on_stop)
+        panel.set_control(control)
+
+        self._unread_page = NotificationListPage(only_unread=True)
+        self._unread_page.entry_clicked.connect(self._on_entry_clicked)
+        self._read_page = NotificationListPage(only_unread=False)
+        self._read_page.entry_clicked.connect(self._on_entry_clicked)
+        self._working_page = WorkingPage(self._session_table)
+        self._working_page.session_clicked.connect(self._on_session_clicked)
+
+        panel.add_page(TAB_UNREAD, self._unread_page)
+        panel.add_page(TAB_READ, self._read_page)
+        panel.add_page(TAB_WORKING, self._working_page)
+
+        self._control = control
+        self._panel = panel
+        return panel
+
+    def toggle_panel(self) -> None:
+        """左键：显示或隐藏面板。"""
+        panel = self._ensure_panel()
+        if panel.isVisible():
+            panel.hide()
+            return
+        self._refresh_panel()
+        anchor = LinuxWindowAnchor(margin=8)
+        geometry = self._tray.geometry()
+        tray_rect = (geometry.x(), geometry.y(), geometry.width(), geometry.height())
+        screen = self._tray.screen() or QApplication.primaryScreen()
+        x, y = anchor.anchor_for(tray_rect, screen)
+        # 面板宽 378：贴右边时 x 会越界，往左挪回来。
+        x = max(0, min(x, screen.availableGeometry().right() - PANEL_WIDTH + 1))
+        panel.show_at(x, y)
+
+    def _refresh_panel(self) -> None:
+        """按当前历史与会话表刷新面板内容。"""
+        panel = self._ensure_panel()
+        state, instance = self._lifecycle.state, self._lifecycle.instance
+        self._control.render(state, instance, self._lifecycle.last_error, busy=self._busy)
+        self._unread = unread_count()
+        self._read = read_count()
+        panel.set_counts(self._unread, self._read, len(self._session_table.active()))
+        panel.set_missed(self._missed_total)
+        self._unread_page.refresh()
+        self._read_page.refresh()
+        self._working_page.refresh()
+
+    def _on_panel_primary(self) -> None:
+        """面板主操作：未运行时启动，运行中打开 Web UI。"""
+        if self._lifecycle.state is State.RUNNING:
+            self._on_open()
+        else:
+            self._on_start()
+
+    def _on_entry_clicked(self, entry_id: str, session_id: str) -> None:
+        """点通知条目：标记已读并打开会话。
+
+        @param entry_id - 条目 id
+        @param session_id - 会话 id
+        """
+        handle_click(
+            entry_id,
+            session_id,
+            self._lifecycle.instance,
+            self._logger,
+            lambda url: webbrowser.open(url),
+        )
+        if self._panel is not None and self._panel.isVisible():
+            self._refresh_panel()
+
+    def _on_session_clicked(self, session_id: str) -> None:
+        """点「工作中」的行：打开该会话。
+
+        @param session_id - 会话 id
+        """
+        instance = self._lifecycle.instance
+        if instance is None:
+            return
+        from ..locks import read_owned_record
+        from ..notify.deeplink import build
+
+        record = read_owned_record(instance.port) if instance.owned else None
+        webbrowser.open(build(session_id, instance, record))
+
     # ------------------------------------------------------------------ 通知
 
     def _on_notify_tick(self) -> None:
@@ -201,6 +313,10 @@ class TrayApp:
         except Exception as error:  # noqa: BLE001 - 消费失败不该中断托盘
             self._logger.error(f"通知消费失败：{error}")
             return
+
+        # 会话快照是全量替换：直接喂给会话表，「工作中」页据此刷新。
+        if self._consumer.session_states:
+            self._session_table.apply(self._consumer.session_states[-1])
 
         # 记录「桌面通知 id → 会话」，点击回执只有 id，得靠这张表反查。
         for delivery in result.deliveries:
@@ -256,13 +372,13 @@ class TrayApp:
     # ------------------------------------------------------------------ 交互
 
     def _on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
-        """左键单击打开 Web UI；右键由菜单接管。
+        """左键单击开面板；右键由菜单接管。
 
-        Plasma 上左键单击的语义是"唤起主界面"，这里映射到打开 Web UI。未运行时
-        什么也不做，避免误点触发启动这种有副作用的动作。
+        面板里既有状态也有启停入口，比直接打开 Web UI 更省一次点击：用户点托盘
+        通常是想看「现在什么情况」，而不是立刻进浏览器。
         """
         if reason is QSystemTrayIcon.ActivationReason.Trigger:
-            self._on_open()
+            self.toggle_panel()
 
     def _on_open(self) -> None:
         """打开 Web UI。自有的用带令牌 URL，接管的用裸 URL。"""

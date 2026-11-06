@@ -96,3 +96,60 @@ def running_icon() -> QIcon:
 def idle_icon() -> QIcon:
     """未运行图标。"""
     return build_icon(COLOR_IDLE)
+
+def badge_text(count: int) -> str:
+    """未读角标上显示的文字。
+
+    超过 9 显示 `9+`：托盘图标只有 22 px，两位数会挤成一小团，读不出来。
+    @param count - 未读条数
+    @returns 角标文字；0 时为空串
+    """
+    if count <= 0:
+        return ""
+    return str(count) if count <= 9 else "9+"
+
+
+def with_badge(icon: QIcon, count: int) -> QIcon:
+    """在图标右上角叠加未读角标。
+
+    用 QPainter 直接画在 22×22 的 pixmap 上，而不是准备两张 SVG：角标位置与字号
+    依赖实际尺寸，位图更直接；托盘尺寸变化时由 Qt 缩放，视觉上仍可接受。
+
+    @param icon - 原始图标
+    @param count - 未读条数；0 时原样返回
+    @returns 带角标的图标
+    """
+    text = badge_text(count)
+    if text == "":
+        return icon
+
+    from PyQt6.QtCore import QRectF, Qt
+    from PyQt6.QtGui import QColor, QFont, QPainter, QPixmap
+
+    size = 22
+    pixmap = icon.pixmap(size, size)
+    if pixmap.isNull():
+        return icon
+
+    canvas = QPixmap(size, size)
+    canvas.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(canvas)
+    painter.drawPixmap(0, 0, pixmap)
+
+    # 角标直径随文字长度增长：`9+` 比 `3` 宽，固定圆会切字。
+    diameter = 11 if len(text) == 1 else 14
+    left = size - diameter + 1
+    top = -1
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setBrush(QColor("#da4453"))
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.drawEllipse(QRectF(left, top, diameter, diameter))
+
+    font = QFont()
+    font.setPixelSize(9 if len(text) == 1 else 8)
+    font.setBold(True)
+    painter.setFont(font)
+    painter.setPen(QColor("#ffffff"))
+    painter.drawText(QRectF(left, top, diameter, diameter), Qt.AlignmentFlag.AlignCenter, text)
+    painter.end()
+    return QIcon(canvas)
