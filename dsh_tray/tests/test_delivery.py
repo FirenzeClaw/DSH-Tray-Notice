@@ -40,14 +40,15 @@ class CommandConstructionTest(unittest.TestCase):
         self.assertIn("需要你审批", command)
         self.assertIn("Bash · rm -rf dist", command)
         # critical → expire_timeout 0（不自动消失）
-        self.assertIn("uint32:0", command)
+        self.assertIn("uint32 0", command)
+        self.assertNotIn("uint32:0", command, "冒号写法 gdbus 不接受，会静默回退")
         joined = " ".join(command)
         self.assertIn("default", joined)
         self.assertIn("打开会话", joined)
 
     def test_normal_uses_5s_timeout(self) -> None:
         command = build_gdbus_command(entry(urgency="normal", kind="done"))
-        self.assertIn("int32:5000", command)
+        self.assertIn("int32 5000", command)
 
     def test_actions_are_declared_as_string_array(self) -> None:
         command = build_gdbus_command(entry())

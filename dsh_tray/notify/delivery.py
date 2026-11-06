@@ -63,6 +63,10 @@ def build_gdbus_command(entry: Mapping[str, object]) -> list[str]:
     - `hints` 是 `a{sv}`，空字典写作 `{}`
     - `expire_timeout` 是 `int32`
 
+    格式是 **`uint32 0`（空格）而不是 `uint32:0`（冒号）**：gdbus 用 GVariant 文本
+    格式，冒号写法会报「解析 u 类型的第 2 个参数时发生错误」。这个错很隐蔽——
+    投递会静默回退到 `notify-send`，通知照样弹出，只是没有动作按钮。
+
     @param entry - 通知条目（dict 形态，字段名与 spool 一致）
     @returns 完整 argv
     """
@@ -80,13 +84,13 @@ def build_gdbus_command(entry: Mapping[str, object]) -> list[str]:
         "--method",
         "org.freedesktop.Notifications.Notify",
         APP_NAME,
-        "uint32:0",
+        "uint32 0",
         "",
         title,
         body,
         f"['{ACTION_KEY}', '{ACTION_LABEL}']",
         "{}",
-        f"int32:{_timeout_for(urgency)}",
+        f"int32 {_timeout_for(urgency)}",
     ]
 
 

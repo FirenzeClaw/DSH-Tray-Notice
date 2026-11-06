@@ -181,10 +181,10 @@ description: "Task list for 托盘通知控制台"
   - [x] `deliver(entry) -> bool`；按 `platform.backend` 分派；失败返回 False（FR-012）
   - [x] T019 转绿
 
-- [ ] T025 [US1] Linux 通知实现 `dsh_tray/platform/linux.py`（投递部分）
-  - [ ] `gdbus call --session … Notify`：app_name `DSH-Tray`、replaces_id `uint32:0`、icon `""`、summary、body、actions `['default','打开会话']`、hints `{}`、`expire_timeout`（critical=0，normal=5000）
-  - [ ] `gdbus` 不存在 → 回退 `notify-send`（无动作）；两者都无 → 返回 False
-  - [ ] 命令构造断言通过；`notify-send` 回退路径手工验证一次
+- [x] T025 [US1] Linux 通知实现 `dsh_tray/platform/linux.py`（投递部分）
+  - [x] `gdbus call --session … Notify`：app_name `DSH-Tray`、replaces_id `uint32:0`、icon `""`、summary、body、actions `['default','打开会话']`、hints `{}`、`expire_timeout`（critical=0，normal=5000）
+  - [x] `gdbus` 不存在 → 回退 `notify-send`（无动作）；两者都无 → 返回 False
+  - [x] 命令构造断言通过；`notify-send` 回退路径手工验证一次
 
 - [x] T026 [US1] 托盘展示模型 `dsh_tray/notify/intents.py`
   - [x] `accept(entry) -> bool`（10 秒去重窗口）、`to_display(entry)`（类别、相对时间）

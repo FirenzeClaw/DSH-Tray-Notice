@@ -4,11 +4,15 @@
 而非基类——实现方不需要继承，鸭子类型即可，测试里传假对象也不必先继承一层。
 
 平台分支只允许出现在本包内（AGENTS.md 硬约束 3）；其余模块只认这三个协议。
+
+签名以 `contracts/contracts.md` 的 C3 为准：`deliver(entry)` 接收一条条目字典，
+而不是拆成 title/body 一堆参数——托盘侧本来就有完整条目，拆开只会让两处各维护
+一份字段映射。
 """
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence
+from typing import Callable, Protocol, Sequence
 
 # 通知紧急度。与 freedesktop 的 urgency 一一对应：0=low 1=normal 2=critical。
 URGENCY_LOW = 0
@@ -19,8 +23,8 @@ URGENCY_CRITICAL = 2
 class NotificationBackend(Protocol):
     """系统通知后端。
 
-    实现方负责把一条已经决定要投递的通知送到桌面，并回报它的身份，供点击回执
-    与撤回使用。**不负责**去重、策略、历史——那些在 `dsh_tray/notify/`。
+    实现方负责把一条已经决定要投递的通知送到桌面。**不负责**去重、策略、历史——
+    那些在 `dsh_tray/notify/`。
     """
 
     def is_available(self) -> bool:
@@ -29,31 +33,14 @@ class NotificationBackend(Protocol):
         @returns 可用为 True；不可用时投递应静默降级而不是抛错
         """
 
-    def send(
-        self,
-        *,
-        title: str,
-        body: str,
-        urgency: int,
-        action_label: str | None,
-        action_key: str | None,
-        replace_id: int | None,
-    ) -> int | None:
+    def deliver(self, entry: dict[str, object]) -> "object":
         """投递一条通知。
 
-        @param title - 标题（已由策略层截断）
-        @param body - 正文（已由策略层截断）
-        @param urgency - `URGENCY_*` 之一
-        @param action_label - 按钮文案；None 表示不带按钮
-        @param action_key - 按钮回执键，点击时原样回到 `on_action`
-        @param replace_id - 要替换的通知 id（同会话合并用）；None 表示新建
-        @returns 桌面分配的通知 id；投递失败返回 None（不得抛错）
-        """
+        返回 `dsh_tray.notify.delivery.DeliveryResult`；用 `object` 标注是为了让本
+        协议不反向依赖投递模块（`delivery` 会 import 本包的类型）。
 
-    def close(self, notification_id: int) -> None:
-        """撤回一条通知（用户已从面板处理掉时调用）。
-
-        @param notification_id - `send` 返回的 id
+        @param entry - 条目字典，字段名与 spool 一致
+        @returns 投递结果（含是否成功与桌面分配的通知 id）
         """
 
 
@@ -61,15 +48,44 @@ class WindowAnchor(Protocol):
     """面板锚点计算。
 
     为什么要抽象：`QSystemTrayIcon.geometry()` 在 Plasma Wayland 上返回 0×0
-    （实测），只能退化到屏幕角落；X11 下则应贴着托盘图标。两种行为都由实现方
-    决定，面板本身只问「我该摆在哪」。
+    （实测），只能退化到屏幕角落；X11 下则应贴着托盘图标。
     """
 
-    def anchor_rect(self) -> tuple[int, int, int, int]:
-        """返回锚点矩形（屏幕坐标，x, y, w, h）。
+    def anchor_for(self, tray_geometry: "tuple[int, int, int, int] | None", screen: object) -> tuple[int, int]:
+        """计算面板左上角坐标。
 
-        @returns 锚点；无法定位时返回空矩形 (0, 0, 0, 0)，调用方自行退化
+        @param tray_geometry - 托盘图标矩形 (x, y, w, h)；无效时为 None
+        @param screen - 有 `availableGeometry()` 的屏幕对象
+        @returns (x, y) 屏幕坐标
         """
+
+
+class ProcessSample(Protocol):
+    """一个进程的瞬时状态。"""
+
+    @property
+    def pid(self) -> int:
+        """进程号。"""
+
+    @property
+    def role(self) -> str:
+        """角色归类：`core` / `mcp` / `tool` / `other`。"""
+
+    @property
+    def label(self) -> str:
+        """可读名，如 `dsh web`、`codegraph`、`pnpm`。"""
+
+    @property
+    def cpu_percent(self) -> float | None:
+        """单核口径的 CPU 百分比；首次采样为 None。"""
+
+    @property
+    def rss_bytes(self) -> int:
+        """常驻内存字节数。"""
+
+    @property
+    def age_seconds(self) -> int | None:
+        """进程已存活秒数。"""
 
 
 class ProcessSampler(Protocol):
@@ -79,31 +95,13 @@ class ProcessSampler(Protocol):
     （AGENTS.md 设计约束）。
     """
 
-    def sample(self) -> Sequence["ProcessSample"]:
+    def sample(self, root_pid: int | None) -> Sequence[ProcessSample]:
         """采一次样。
 
-        @returns 本轮采样到的进程行；采不到时返回空序列而不是抛错
+        @param root_pid - DSH 主进程号；None 时返回空序列
+        @returns 本轮采样到的进程行
         """
 
 
-class ProcessSample(Protocol):
-    """一个进程的瞬时状态。
-
-    字段刻意保持最少：概览页只显示「谁在跑、占多少」。
-    """
-
-    @property
-    def pid(self) -> int:
-        """进程号。"""
-
-    @property
-    def role(self) -> str:
-        """角色归类（例如 `dsh-web` / `child` / `other`），由实现方判定。"""
-
-    @property
-    def cpu_percent(self) -> float:
-        """瞬时 CPU 占用百分比。"""
-
-    @property
-    def rss_bytes(self) -> int:
-        """常驻内存字节数。"""
+#: 点击回执回调：(通知 id, 动作键) → None。
+ActionCallback = Callable[[int, str], None]
