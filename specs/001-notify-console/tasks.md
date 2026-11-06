@@ -111,10 +111,10 @@ description: "Task list for 托盘通知控制台"
   - [x] 令牌脱敏：`token=` 后的值替换为 `***`
   - [x] 两侧各一条单测断言 `token=abc` → `token=***`
 
-- [ ] T015 插件设置读取与热更新 `plugin/src/settings.ts`
-  - [ ] 挂载时读 ns=`tray-notify`，订阅变更事件后重读并重建策略对象
-  - [ ] 读失败回退到「标准」预设（不得因此不工作）
-  - [ ] 单测用假 settings 服务断言「变更后策略更新」「读失败回退标准」
+- [x] T015 插件设置读取与热更新 `plugin/src/settings.ts`
+  - [x] 挂载时读 ns=`tray-notify`，订阅变更事件后重读并重建策略对象
+  - [x] 读失败回退到「标准」预设（不得因此不工作）
+  - [x] 单测用假 settings 服务断言「变更后策略更新」「读失败回退标准」
 
 **Checkpoint**: 契约冻结，两侧可各自独立开发。
 
