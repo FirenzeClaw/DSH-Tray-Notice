@@ -166,10 +166,10 @@ description: "Task list for 托盘通知控制台"
   - [x] 父会话恢复（新 `turn/start`）即取消挂起
   - [x] T017 转绿
 
-- [ ] T022 [US1] 实现插件侧会话状态快照 `plugin/src/sessionstate.ts`
-  - [ ] `turn/start` → `working` + `turnStartedAt`；`tool/call` → 更新 `currentTool`；`turn/end` → 移出快照
-  - [ ] 内容未变时不写新行
-  - [ ] 单测断言「turn/start + tool/call + turn/end 共写 3 行」
+- [x] T022 [US1] 实现插件侧会话状态快照 `plugin/src/sessionstate.ts`
+  - [x] `turn/start` → `working` + `turnStartedAt`；`tool/call` → 更新 `currentTool`；`turn/end` → 移出快照
+  - [x] 内容未变时不写新行
+  - [x] 单测断言「turn/start + tool/call + turn/end 共写 3 行」
 
 - [ ] T023 [US1] 接线插件入口 `plugin/src/index.ts`
   - [ ] 订阅 `session/event`（含 `turn/end`、`tool/call`、`tool/result`）、`approval/asked`、**`job/settled`**、**`goal/changed`**
