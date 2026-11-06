@@ -136,11 +136,11 @@ description: "Task list for 托盘通知控制台"
   - [x] 子会话 `turn/end` 在 `subagents:false` 下不产生意图
   - [x] 正文超 `bodyLimit` 时截断并加省略号
 
-- [ ] T017 [P] [US1] 挂起完成测试 `plugin/tests/defer.test.ts`
-  - [ ] 父会话 `turn/end(completed)` 且子会话仍 working → 不立即产出通知
-  - [ ] 最后一个子会话结束后 2 秒内父会话未恢复 → 产出 `done` 通知（假时钟推进验证）
-  - [ ] 父会话在 2 秒内恢复 → 取消挂起，不产出通知
-  - [ ] 挂起超过 15 分钟 → 丢弃且不产出（记一条日志）
+- [x] T017 [P] [US1] 挂起完成测试 `plugin/tests/defer.test.ts`
+  - [x] 父会话 `turn/end(completed)` 且子会话仍 working → 不立即产出通知
+  - [x] 最后一个子会话结束后 2 秒内父会话未恢复 → 产出 `done` 通知（假时钟推进验证）
+  - [x] 父会话在 2 秒内恢复 → 取消挂起，不产出通知
+  - [x] 挂起超过 15 分钟 → 丢弃且不产出（记一条日志）
 
 - [ ] T018 [P] [US1] 托盘展示模型测试 `dsh_tray/tests/test_intents.py`
   - [ ] 同 `dedupeKey` 且 10 秒内第二条被丢弃；11 秒后允许
@@ -160,11 +160,11 @@ description: "Task list for 托盘通知控制台"
   - [x] 正文超 `bodyLimit`（默认 200）截断
   - [x] T016 转绿
 
-- [ ] T021 [US1] 实现挂起完成 `plugin/src/defer.ts`
-  - [ ] 挂起表键为父会话 id；记录子会话集合与挂起起始时刻
-  - [ ] 宽限常量 `GRACE_MS = 2000`、上限 `MAX_DEFER_MS = 15 * 60 * 1000`，均为具名常量
-  - [ ] 父会话恢复（新 `turn/start`）即取消挂起
-  - [ ] T017 转绿
+- [x] T021 [US1] 实现挂起完成 `plugin/src/defer.ts`
+  - [x] 挂起表键为父会话 id；记录子会话集合与挂起起始时刻
+  - [x] 宽限常量 `GRACE_MS = 2000`、上限 `MAX_DEFER_MS = 15 * 60 * 1000`，均为具名常量
+  - [x] 父会话恢复（新 `turn/start`）即取消挂起
+  - [x] T017 转绿
 
 - [ ] T022 [US1] 实现插件侧会话状态快照 `plugin/src/sessionstate.ts`
   - [ ] `turn/start` → `working` + `turnStartedAt`；`tool/call` → 更新 `currentTool`；`turn/end` → 移出快照
