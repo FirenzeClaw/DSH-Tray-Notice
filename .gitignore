@@ -1,2 +1,9 @@
 __pycache__/
 *.pyc
+
+# 本机代码索引：可随时用 `codegraph init` 重建，不该进仓库
+.codegraph/
+
+# specify init 把 speckit 技能复制到这里；全局 ~/.dsh/skills 已有同一套，
+# 提交它们只是重复 200 KB 且会遮蔽全局版本
+.dsh/

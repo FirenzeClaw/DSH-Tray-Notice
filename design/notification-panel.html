@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>DSH-Tray 控制台面板 · 设计稿 v3</title>
+<style>
+  :root {
+    --panel: #202325; --panel-raised: #26292b; --border: #313538; --border-soft: #2a2d2f;
+    --text: #eff0f1; --text-2: #b6babd; --text-3: #8b9094; --accent: #3daee9;
+    --need: #f7b32b; --done: #4cc38a; --fail: #f26d6d; --back: #5aa7d6; --note: #a78bfa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(circle at 30% 10%, #24282b 0%, #16191b 62%);
+    color: var(--text); font: 13px/1.45 "Noto Sans CJK SC", "Noto Sans", system-ui, sans-serif;
+    min-height: 100vh; padding: 40px 36px 64px; -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 15px; font-weight: 600; }
+  .subtitle { color: var(--text-3); font-size: 12px; margin-top: 6px; max-width: 800px; }
+  .stage { display: flex; gap: 40px; align-items: flex-start; margin-top: 30px; flex-wrap: wrap; }
+
+  .switcher { display: flex; gap: 3px; background: #17191b; border: 1px solid var(--border-soft); border-radius: 8px; padding: 3px; width: fit-content; margin-bottom: 14px; }
+  .switcher button { border: 0; background: transparent; color: var(--text-3); font: inherit; font-size: 11.5px; padding: 5px 11px; border-radius: 6px; cursor: pointer; }
+  .switcher button:hover { color: var(--text-2); }
+  .switcher button[aria-pressed="true"] { background: #2c3033; color: var(--text); }
+
+  .tray-strip { display: flex; align-items: center; gap: 16px; background: #111416; border: 1px solid var(--border-soft); border-radius: 999px; padding: 7px 16px; width: fit-content; }
+  .tray-icon { position: relative; width: 22px; height: 22px; }
+  .badge { position: absolute; top: -5px; right: -6px; min-width: 15px; height: 15px; padding: 0 4px; background: #da4453; color: #fff; border-radius: 999px; font-size: 9.5px; font-weight: 700; line-height: 15px; text-align: center; border: 1.5px solid #111416; }
+  .tray-meta { font-size: 11.5px; color: var(--text-3); }
+  .tray-meta b { color: var(--text-2); font-weight: 500; }
+
+  .panel { width: 378px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 18px 48px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.4); }
+
+  .control { padding: 13px 14px 12px; }
+  .ctl-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .ctl-status { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .dot-state { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
+  .s-run { background: var(--done); box-shadow: 0 0 0 3px rgba(76,195,138,.16); }
+  .s-off { background: #5c6266; box-shadow: 0 0 0 3px rgba(140,146,150,.12); }
+  .s-busy { background: var(--need); box-shadow: 0 0 0 3px rgba(247,179,43,.16); animation: pulse 1.4s ease-in-out infinite; }
+  .s-fail { background: var(--fail); box-shadow: 0 0 0 3px rgba(242,109,109,.16); }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+  .ctl-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+  .ctl-meta { color: var(--text-3); font-size: 11.5px; margin-top: 3px; padding-left: 16px; }
+  .ctl-meta .sep { margin: 0 5px; opacity: .5; }
+
+  .btn { border: 1px solid var(--border); background: #2b2f31; color: var(--text-2); font: inherit; font-size: 11.5px; padding: 5px 11px; border-radius: 6px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+  .btn:hover:not(:disabled) { background: #34383b; color: var(--text); }
+  .btn:disabled { opacity: .42; cursor: default; }
+  .btn.primary { background: rgba(61,174,233,.14); border-color: rgba(61,174,233,.5); color: #a8dcf7; font-weight: 500; }
+  .btn.primary:hover:not(:disabled) { background: rgba(61,174,233,.22); }
+  .btn.wide { width: 100%; justify-content: center; padding: 7px; font-size: 12px; }
+  .ctl-actions { display: flex; gap: 6px; margin-top: 11px; }
+  .ctl-actions .btn { flex: 1; justify-content: center; }
+  .hint { margin-top: 10px; padding: 8px 10px; border-radius: 6px; font-size: 11.5px; line-height: 1.55; background: rgba(247,179,43,.09); border: 1px solid rgba(247,179,43,.22); color: #e3c98a; }
+  .hint b { color: #f2d79a; font-weight: 600; }
+  .hint.err { background: rgba(242,109,109,.09); border-color: rgba(242,109,109,.24); color: #eaa9a9; }
+  .hint.err b { color: #f2bcbc; }
+
+  .divider { height: 1px; background: var(--border-soft); }
+  .notif-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px 0; }
+  .notif-title { font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+  .head-actions { display: flex; gap: 2px; }
+  .icon-btn { width: 26px; height: 26px; border: 0; border-radius: 8px; background: transparent; color: var(--text-3); cursor: pointer; display: grid; place-items: center; }
+  .icon-btn:hover { background: var(--panel-raised); color: var(--text); }
+  .icon-btn svg { display: block; }
+
+  .tabs { display: flex; gap: 0; margin: 7px 14px 0; border-bottom: 1px solid var(--border-soft); }
+  /* 横向均分：四个标签等宽，切换时文字不会左右跳动 */
+  /* 文字是唯一在流内的元素 → 永远居于栏位正中；数量与活动点绝对定位，不参与居中 */
+  .tab { position: relative; flex: 1 1 0; justify-content: center; border: 0; background: transparent; color: var(--text-3); font: inherit; font-size: 12px; padding: 6px 2px 8px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; white-space: nowrap; }
+  .tab:hover { color: var(--text-2); }
+  .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 500; }
+  .tab .count { position: absolute; right: 1px; top: 4px; min-width: 16px; height: 15px; line-height: 15px; text-align: center; padding: 0 4px; border-radius: 999px; font-size: 10px; background: #2f3336; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .tab[aria-selected="true"] .count { background: rgba(61,174,233,.18); color: #9fd8f5; }
+  .tab .live { position: absolute; left: 2px; top: 50%; margin-top: -2.5px; width: 5px; height: 5px; border-radius: 50%; background: var(--back); animation: pulse 1.6s ease-in-out infinite; }
+
+  .list { max-height: 318px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #3a3e41 transparent; }
+  .list::-webkit-scrollbar { width: 8px; }
+  .list::-webkit-scrollbar-thumb { background: #3a3e41; border-radius: 99px; border: 2px solid var(--panel); }
+  .group-head { position: sticky; top: 0; z-index: 1; background: var(--panel); padding: 8px 14px 4px; font-size: 10.5px; letter-spacing: .5px; color: var(--text-3); text-transform: uppercase; }
+
+  .row { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; padding: 9px 14px; cursor: pointer; position: relative; border-left: 2px solid transparent; transition: background .09s; }
+  .row:hover { background: var(--panel-raised); border-left-color: var(--accent); }
+  .row.is-unread .dot { position: absolute; left: 5px; top: 17px; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+  .glyph { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; font-size: 13px; font-weight: 700; margin-top: 1px; }
+  .g-need { background: rgba(247,179,43,.15); color: var(--need); }
+  .g-done { background: rgba(76,195,138,.14); color: var(--done); }
+  .g-fail { background: rgba(242,109,109,.14); color: var(--fail); }
+  .g-back { background: rgba(90,167,214,.14); color: var(--back); }
+  .g-note { background: rgba(167,139,250,.14); color: var(--note); }
+  .row-main { min-width: 0; }
+  .row-title { font-size: 12.5px; display: flex; gap: 7px; align-items: baseline; }
+  .row.is-unread .row-title { font-weight: 600; }
+  .row-session { color: var(--text-3); font-size: 11px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+  .row-body { color: var(--text-2); font-size: 11.5px; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .row-body code { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #cdd3d7; }
+  .row-time { color: var(--text-3); font-size: 10.5px; white-space: nowrap; padding-top: 2px; font-variant-numeric: tabular-nums; }
+  .row-actions { grid-column: 2 / 4; display: none; gap: 6px; margin-top: 7px; }
+  .row:hover .row-actions { display: flex; }
+  .mini { border: 1px solid var(--border); background: #2b2f31; color: var(--text-2); font: inherit; font-size: 11px; padding: 3px 9px; border-radius: 5px; cursor: pointer; }
+  .mini:hover { background: #34383b; color: var(--text); }
+  .mini.primary { border-color: rgba(61,174,233,.5); color: #a8dcf7; background: rgba(61,174,233,.12); }
+  .row.seen .row-title { font-weight: 400; color: var(--text-2); }
+  .row.seen .glyph { opacity: .5; }
+  .row.seen .row-body { color: var(--text-3); }
+
+  /* 工作中 */
+  .row.working { cursor: pointer; }
+  .w-ring { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; margin-top: 1px; position: relative; }
+  .w-ring.blue { background: rgba(90,167,214,.14); }
+  .w-ring.amber { background: rgba(247,179,43,.15); }
+  .w-ring i { width: 8px; height: 8px; border-radius: 50%; display: block; }
+  .w-ring.blue i { background: var(--back); animation: pulse 1.5s ease-in-out infinite; }
+  .w-ring.amber i { background: var(--need); animation: pulse 1.5s ease-in-out infinite; }
+  .elapsed { font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 11.5px; font-weight: 500; }
+  .row.working:hover .elapsed { color: var(--text); }
+  .meter { height: 3px; border-radius: 2px; background: #2f3336; margin-top: 7px; overflow: hidden; }
+  .meter span { display: block; height: 100%; background: linear-gradient(90deg, #3daee9, #5aa7d6); }
+
+  /* 概览 */
+  .overview-head { display: flex; gap: 14px; padding: 11px 14px 9px; border-bottom: 1px solid var(--border-soft); background: #1e2123; }
+  .stat { display: flex; flex-direction: column; gap: 1px; }
+  .stat b { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 10px; color: var(--text-3); letter-spacing: .3px; }
+  .stat.cpu b { color: #a8dcf7; }
+  .stat.mem b { color: #b6e3b6; }
+  .stat.proc b { color: var(--text); }
+  .prow { display: grid; grid-template-columns: 1fr 54px 62px; gap: 8px; padding: 7px 14px; align-items: center; border-left: 2px solid transparent; }
+  .prow:hover { background: var(--panel-raised); border-left-color: var(--accent); }
+  .prow.grouped { padding-top: 3px; padding-bottom: 3px; }
+  .pname { min-width: 0; }
+  .pname .n { font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .pname .n code { font-family: "JetBrains Mono", monospace; font-size: 11px; color: #cdd3d7; }
+  .pname .tag { font-size: 9.5px; padding: 0 5px; border-radius: 3px; background: #2f3336; color: var(--text-3); }
+  .pname .tag.mcp { background: rgba(167,139,250,.15); color: #c4b1fb; }
+  .pname .tag.bash { background: rgba(90,167,214,.15); color: #a8d4ef; }
+  .pname .tag.core { background: rgba(76,195,138,.14); color: #97dcb8; }
+  .pname .sub { font-size: 10.5px; color: var(--text-3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pnum { font-size: 11.5px; text-align: right; font-variant-numeric: tabular-nums; }
+  .pnum.cpu { color: var(--text-2); }
+  .pnum.cpu.hot { color: var(--need); }
+  .pnum.mem { color: var(--text-3); }
+  .pfoot { padding: 7px 14px 9px; font-size: 10.5px; color: var(--text-3); line-height: 1.5; border-top: 1px solid var(--border-soft); }
+
+  .empty { padding: 34px 20px 38px; text-align: center; }
+  .empty-ico { font-size: 24px; opacity: .28; }
+  .empty-t { color: var(--text-2); font-size: 12.5px; margin-top: 9px; }
+  .empty-s { color: var(--text-3); font-size: 11px; margin-top: 4px; }
+
+  .panel-foot { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-top: 1px solid var(--border-soft); background: #1d2022; }
+  .foot-btn { border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 11.5px; padding: 4px 7px; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .foot-btn:hover { background: var(--panel-raised); color: var(--text); }
+  .foot-hint { color: var(--text-3); font-size: 10.5px; }
+
+  .notes { width: 336px; display: flex; flex-direction: column; gap: 12px; }
+  .note { background: #1c1f21; border: 1px solid var(--border-soft); border-radius: 8px; padding: 12px 13px; }
+  .note h3 { font-size: 11.5px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+  .note p, .note li { font-size: 11.5px; color: var(--text-3); line-height: 1.65; }
+  .note ul { padding-left: 15px; }
+  .note code { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: #c3cace; }
+  .note .kv { display: grid; grid-template-columns: 62px 1fr; gap: 4px 8px; margin-top: 6px; font-size: 11px; }
+  .note .kv b { color: var(--text-2); font-weight: 500; }
+</style>
+</head>
+<body>
+  <h1>DSH-Tray 控制台面板 · v3</h1>
+  <p class="subtitle">
+    四个标签页：未查看 / 已查看 / 工作中 / 概览。切到「工作中」看时长在跳（真实本地计时），
+    「概览」的 CPU/内存也是模拟采样；点通知行会移进「已查看」。
+  </p>
+
+  <div class="stage">
+    <div>
+      <div class="switcher" id="switcher">
+        <button data-state="run-owned" aria-pressed="true">运行中·自有</button>
+        <button data-state="run-adopted" aria-pressed="false">运行中·接管</button>
+        <button data-state="off" aria-pressed="false">未运行</button>
+        <button data-state="busy" aria-pressed="false">启动中</button>
+        <button data-state="failed" aria-pressed="false">失败</button>
+      </div>
+
+      <div class="tray-strip" style="margin-bottom:14px">
+        <div class="tray-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 13.2c1.6-2.1 3.4-3.1 5-3.1 2.4 0 3.2 2.3 5.5 2.3 1.5 0 2.7-.7 3.8-1.9" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>
+            <path d="M4.6 9.4c1.3-1.6 2.7-2.4 4-2.4 2 0 2.7 1.9 4.6 1.9 1.2 0 2.2-.6 3.2-1.5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity=".75"/>
+            <path d="M13.6 16.4c1 .5 2 .4 3.1-.3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity=".55"/>
+          </svg>
+          <span class="badge" id="badge">4</span>
+        </div>
+        <span class="tray-meta" id="tray-meta">DSH-Tray · <b>运行中</b> · 4 条未查看</span>
+      </div>
+
+      <div class="panel">
+        <div class="control" id="control"></div>
+        <div class="divider"></div>
+
+        <div class="notif-head">
+          <span class="notif-title">通知与状态</span>
+          <div class="head-actions">
+            <button class="icon-btn" title="全部标为已查看" aria-label="全部标为已查看">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor"
+                   stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M1.7 8.5l2.8 2.8 5.2-5.6"/>
+                <path d="M8.6 10.7l.9.9 4.1-4.4"/>
+              </svg>
+            </button>
+            <button class="icon-btn" title="清空已查看" aria-label="清空已查看">
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor"
+                   stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2.9 4.7h10.2"/>
+                <path d="M6.3 4.7V3.5a1.1 1.1 0 0 1 1.1-1.1h1.2a1.1 1.1 0 0 1 1.1 1.1v1.2"/>
+                <path d="M4.4 4.7l.6 8.1a1.4 1.4 0 0 0 1.4 1.3h3.2a1.4 1.4 0 0 0 1.4-1.3l.6-8.1"/>
+                <path d="M6.9 7.4v3.7M9.1 7.4v3.7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" aria-selected="true"  data-tab="unread">未查看 <span class="count" id="unread-count">4</span></button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="seen">已查看 <span class="count" id="seen-count">3</span></button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="working"><span class="live"></span>工作中 <span class="count" id="working-count">3</span></button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="overview">概览</button>
+        </div>
+
+        <!-- 未查看 -->
+        <div class="list" id="list-unread">
+          <div class="row is-unread">
+            <span class="dot"></span>
+            <div class="glyph g-need">!</div>
+            <div class="row-main">
+              <div class="row-title">需要你审批 <span class="row-session">通知面板设计</span></div>
+              <div class="row-body"><code>Bash</code> · <code>rm -rf dist &amp;&amp; pnpm build</code></div>
+            </div>
+            <div class="row-time">刚刚</div>
+            <div class="row-actions"><button class="mini primary">打开会话</button><button class="mini">标为已查看</button></div>
+          </div>
+          <div class="row is-unread">
+            <span class="dot"></span>
+            <div class="glyph g-need">?</div>
+            <div class="row-main">
+              <div class="row-title">等待你回答 <span class="row-session">托盘多平台重构</span></div>
+              <div class="row-body">选择 IPC 方案：文件 spool / 本地 socket / 插件直投（3 个选项）</div>
+            </div>
+            <div class="row-time">2 分钟</div>
+            <div class="row-actions"><button class="mini primary">打开会话</button><button class="mini">标为已查看</button></div>
+          </div>
+          <div class="row is-unread">
+            <span class="dot"></span>
+            <div class="glyph g-done">✓</div>
+            <div class="row-main">
+              <div class="row-title">已完成 <span class="row-session">通知面板设计</span></div>
+              <div class="row-body">轮次 4 结束 · 12 次工具调用 · 用时 3 分 12 秒</div>
+            </div>
+            <div class="row-time">8 分钟</div>
+            <div class="row-actions"><button class="mini primary">打开会话</button><button class="mini">标为已查看</button></div>
+          </div>
+          <div class="row is-unread">
+            <span class="dot"></span>
+            <div class="glyph g-fail">✕</div>
+            <div class="row-main">
+              <div class="row-title">上游断流 <span class="row-session">DSH-Tray&amp;Notice 初始化</span></div>
+              <div class="row-body">deepseek-v4.1-flash · HTTP 503 · 已重试 3 次</div>
+            </div>
+            <div class="row-time">21 分钟</div>
+            <div class="row-actions"><button class="mini primary">打开会话</button><button class="mini">标为已查看</button></div>
+          </div>
+        </div>
+
+        <!-- 已查看 -->
+        <div class="list" id="list-seen" hidden>
+          <div class="group-head">今天</div>
+          <div class="row seen">
+            <div class="glyph g-note">◆</div>
+            <div class="row-main">
+              <div class="row-title">可能卡住·第 5 次未声明 <span class="row-session">托盘多平台重构</span></div>
+              <div class="row-body">target-monitor · turn 7 连续未声明完成，已注入续行提醒</div>
+            </div>
+            <div class="row-time">16:02</div>
+          </div>
+          <div class="row seen">
+            <div class="glyph g-back">⏱</div>
+            <div class="row-main">
+              <div class="row-title">后台任务结束 <span class="row-session">插件联调</span></div>
+              <div class="row-body">pytest 全量 · 199 passed · 用时 42 秒</div>
+            </div>
+            <div class="row-time">15:40</div>
+          </div>
+          <div class="group-head">昨天</div>
+          <div class="row seen">
+            <div class="glyph g-done">✓</div>
+            <div class="row-main">
+              <div class="row-title">子任务完成 <span class="row-session">插件联调</span></div>
+              <div class="row-body">subagent browser-check · 5 步 · 已并入父会话</div>
+            </div>
+            <div class="row-time">昨天 22:11</div>
+          </div>
+        </div>
+
+        <!-- 工作中 -->
+        <div class="list" id="list-working" hidden>
+          <div class="row working">
+            <div class="w-ring amber"><i></i></div>
+            <div class="row-main">
+              <div class="row-title">托盘多平台重构 <span class="row-session" style="color:var(--need)">等你回答</span></div>
+              <div class="row-body">第 12 轮 · 卡在 <code>ask_user_question</code>：选择 IPC 方案</div>
+              <div class="meter"><span style="width:64%"></span></div>
+            </div>
+            <div class="elapsed" data-start="107">1:47</div>
+          </div>
+          <div class="row working">
+            <div class="w-ring blue"><i></i></div>
+            <div class="row-main">
+              <div class="row-title">通知面板设计 <span class="row-session">第 4 轮</span></div>
+              <div class="row-body">正在执行 <code>Bash</code> · <code>pnpm build</code></div>
+              <div class="meter"><span style="width:38%"></span></div>
+            </div>
+            <div class="elapsed" data-start="192">3:12</div>
+          </div>
+          <div class="row working">
+            <div class="w-ring blue"><i></i></div>
+            <div class="row-main">
+              <div class="row-title">插件联调 <span class="row-session">第 2 轮</span></div>
+              <div class="row-body">正在执行 <code>Read</code> · <code>dsh_tray/probe.py</code></div>
+              <div class="meter"><span style="width:11%"></span></div>
+            </div>
+            <div class="elapsed" data-start="23">0:23</div>
+          </div>
+          <div class="pfoot" style="border-top:1px solid var(--border-soft)">
+            时长由托盘本地累加（收到轮次开始时刻后每秒自增），不依赖插件持续心跳。
+          </div>
+        </div>
+
+        <!-- 概览 -->
+        <div class="list" id="list-overview" hidden>
+          <div class="overview-head">
+            <div class="stat cpu"><b>66.7%</b><span>CPU 合计</span></div>
+            <div class="stat mem"><b>1.04 GiB</b><span>内存合计</span></div>
+            <div class="stat proc"><b>5</b><span>子进程</span></div>
+          </div>
+          <div class="group-head">DSH 本体</div>
+          <div class="prow">
+            <div class="pname">
+              <div class="n"><span class="tag core">node</span> dsh web <span style="color:var(--text-3);font-size:10.5px">PID 4512</span></div>
+              <div class="sub">--port 3080 · systemd scope dsh-web-4512.scope</div>
+            </div>
+            <div class="pnum cpu">14.2%</div>
+            <div class="pnum mem">486 MiB</div>
+          </div>
+          <div class="group-head">MCP 服务器</div>
+          <div class="prow">
+            <div class="pname">
+              <div class="n"><span class="tag mcp">mcp</span> codegraph <span style="color:var(--text-3);font-size:10.5px">PID 4531</span></div>
+              <div class="sub">codegraph-mcp start --stdio</div>
+            </div>
+            <div class="pnum cpu">0.4%</div>
+            <div class="pnum mem">62 MiB</div>
+          </div>
+          <div class="prow">
+            <div class="pname">
+              <div class="n"><span class="tag mcp">mcp</span> figma <span style="color:var(--text-3);font-size:10.5px">PID 4540</span></div>
+              <div class="sub">streamable-http · mcp.figma.com</div>
+            </div>
+            <div class="pnum cpu">0.2%</div>
+            <div class="pnum mem">58 MiB</div>
+          </div>
+          <div class="group-head">工具子进程</div>
+          <div class="prow">
+            <div class="pname">
+              <div class="n"><span class="tag bash">bash</span> pnpm build <span style="color:var(--text-3);font-size:10.5px">PID 8123</span></div>
+              <div class="sub">会话「通知面板设计」· 已运行 3:12</div>
+            </div>
+            <div class="pnum cpu hot">42.8%</div>
+            <div class="pnum mem">320 MiB</div>
+          </div>
+          <div class="prow">
+            <div class="pname">
+              <div class="n"><span class="tag bash">bash</span> pytest <span style="color:var(--text-3);font-size:10.5px">PID 8140</span></div>
+              <div class="sub">会话「插件联调」· 已运行 0:23</div>
+            </div>
+            <div class="pnum cpu">9.1%</div>
+            <div class="pnum mem">140 MiB</div>
+          </div>
+          <div class="pfoot">
+            CPU 为单核百分比（100% = 占满一个核）；内存是各进程 RSS 之和，含共享页重复计入，只作量级参考。
+            面板关闭时停止采样，不产生后台开销。
+          </div>
+        </div>
+
+        <div class="panel-foot">
+          <div style="display:flex;gap:2px">
+            <button class="foot-btn">⚙ 设置</button>
+            <button class="foot-btn">⏻ 退出托盘</button>
+          </div>
+          <span class="foot-hint">右键 = 快捷菜单</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note">
+        <h3>四个标签页的数据来源不同</h3>
+        <div class="kv">
+          <b>未查看 / 已查看</b><span>插件 push（spool 事件），托盘只读</span>
+          <b>工作中</b><span>插件 push 状态快照，托盘本地计时</span>
+          <b>概览</b><span>托盘自己采样 /proc，面板开着才采</span>
+        </div>
+        <p style="margin-top:8px">把「概览」放在托盘侧而不是插件侧，是因为它要在 DSH 卡死、甚至没起来时也能用——那正是最需要看进程的时候。</p>
+      </div>
+
+      <div class="note">
+        <h3>工作中：怎么知道谁在跑</h3>
+        <ul>
+          <li>插件在会话状态变化时写一条<b>状态快照</b>（谁在跑、第几轮、轮次开始时刻、当前工具），变了才写。</li>
+          <li>时长由托盘<b>本地每秒累加</b>，插件不必高频心跳——省 IO，也不会让时长卡顿。</li>
+          <li>有会话在等你（审批/提问）时，圆点转琥珀色并标「等你回答」；这类会话不会出现在「工作中」以外的地方。</li>
+          <li>点任一行 → 直接打开该会话。</li>
+        </ul>
+      </div>
+
+      <div class="note">
+        <h3>概览：采样的三个硬约束</h3>
+        <ul>
+          <li><b>线程安全</b>：采样在固定后台线程，不阻塞 Qt 事件循环；面板关闭即停。</li>
+          <li><b>CPU 需要两次采样</b>：单次读数只能拿到累计 jiffies，百分比必须用两次间隔求差，所以第一次打开面板时首行 CPU 显示「—」而不是 0%。</li>
+          <li><b>不引入 psutil</b>：Linux 读 <code>/proc/&lt;pid&gt;/stat</code> 与 <code>status</code>；Windows 走 CIM。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const STATES = {
+    'run-owned': { dot:'s-run', name:'DSH 运行中', meta:'PID 4512 <span class="sep">·</span> 端口 3080 <span class="sep">·</span> 由托盘启动 <span class="sep">·</span> 带令牌',
+      primary:{ label:'⧉ 打开 Web UI', on:true }, secondary:[{label:'停止 DSH'},{label:'重启 DSH'}], hint:null },
+    'run-adopted': { dot:'s-run', name:'DSH 运行中', meta:'PID 8801 <span class="sep">·</span> 端口 3080 <span class="sep">·</span> 外部启动 <span class="sep">·</span> 无令牌',
+      primary:{ label:'⧉ 打开 Web UI', on:true }, secondary:[{label:'停止 DSH'},{label:'重启 DSH'}],
+      hint:{ kind:'warn', html:'接管来的实例拿不到访问令牌，浏览器里若提示未授权，<b>重启一次</b>即可转为自有实例。' } },
+    'off': { dot:'s-off', name:'DSH 未运行', meta:'端口 3080 <span class="sep">·</span> 空闲',
+      primary:{ label:'▶ 启动 DSH', on:true, wide:true }, secondary:[], hint:null },
+    'busy': { dot:'s-busy', name:'正在启动 DSH…', meta:'等待访问令牌 <span class="sep">·</span> 约 13 秒',
+      primary:{ label:'⧉ 打开 Web UI', on:false }, secondary:[{label:'停止 DSH',on:false},{label:'重启 DSH',on:false}], hint:null },
+    'failed': { dot:'s-fail', name:'DSH 启动失败', meta:'子进程提前退出 <span class="sep">·</span> exit code 1',
+      primary:{ label:'▶ 重试启动', on:true, wide:true }, secondary:[],
+      hint:{ kind:'err', html:'端口 3080 被非 dsh 进程占用（PID 2210 <code>python3 -m http.server</code>）。<b>托盘不会替你杀掉它。</b>' } },
+  };
+  const control = document.getElementById('control');
+  function renderControl(key) {
+    const s = STATES[key];
+    const btn = (b, extra='') => `<button class="btn ${extra}" ${b.on === false ? 'disabled' : ''}>${b.label}</button>`;
+    const actions = s.primary.wide
+      ? `<div class="ctl-actions">${btn(s.primary,'primary wide')}</div>`
+      : `<div class="ctl-actions">${btn(s.secondary[0]||{label:'',on:false})}${btn(s.secondary[1]||{label:'',on:false})}</div>`;
+    const hint = s.hint ? `<div class="hint ${s.hint.kind==='err'?'err':''}">${s.hint.html}</div>` : '';
+    control.innerHTML = `
+      <div class="ctl-top">
+        <div>
+          <div class="ctl-status"><span class="dot-state ${s.dot}"></span><span class="ctl-name">${s.name}</span></div>
+          <div class="ctl-meta">${s.meta}</div>
+        </div>
+        <div>${!s.primary.wide ? btn(s.primary,'primary') : ''}</div>
+      </div>${actions}${hint}`;
+  }
+  document.getElementById('switcher').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#switcher button').forEach((x) => x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true'); renderControl(b.dataset.state);
+  });
+
+  const badge = document.getElementById('badge');
+  const unreadCount = document.getElementById('unread-count');
+  const seenCount = document.getElementById('seen-count');
+  const listUnread = document.getElementById('list-unread');
+  const listSeen = document.getElementById('list-seen');
+
+  function syncCounts() {
+    const n = listUnread.querySelectorAll('.row').length;
+    unreadCount.textContent = n;
+    seenCount.textContent = listSeen.querySelectorAll('.row').length;
+    badge.textContent = n;
+    badge.style.display = n ? '' : 'none';
+    document.getElementById('tray-meta').innerHTML =
+      'DSH-Tray · <b>运行中</b> · ' + (n ? n + ' 条未查看' : '无未查看');
+  }
+  function markSeen(row) {
+    row.classList.remove('is-unread'); row.classList.add('seen');
+    row.querySelector('.dot')?.remove(); row.querySelector('.row-actions')?.remove();
+    let head = listSeen.querySelector('.group-head');
+    if (!head) { head = document.createElement('div'); head.className='group-head'; head.textContent='今天'; listSeen.prepend(head); }
+    head.after(row); syncCounts();
+  }
+  listUnread.addEventListener('click', (e) => { const row = e.target.closest('.row'); if (row) markSeen(row); });
+
+  const PANES = {
+    unread: listUnread, seen: listSeen,
+    working: document.getElementById('list-working'),
+    overview: document.getElementById('list-overview'),
+  };
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-selected','false'));
+      tab.setAttribute('aria-selected','true');
+      Object.entries(PANES).forEach(([k, el]) => { el.hidden = k !== tab.dataset.tab; });
+    });
+  });
+
+  // 工作中：本地每秒累加，证明时长不依赖心跳
+  setInterval(() => {
+    document.querySelectorAll('.elapsed').forEach((el) => {
+      const s = Number(el.dataset.start) + 1; el.dataset.start = s;
+      const m = Math.floor(s / 60), r = s % 60;
+      el.textContent = m + ':' + String(r).padStart(2, '0');
+    });
+  }, 1000);
+
+  renderControl('run-owned');
+  syncCounts();
+</script>
+</body>
+</html>
