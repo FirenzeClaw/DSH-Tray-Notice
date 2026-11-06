@@ -88,11 +88,11 @@ description: "Task list for 托盘通知控制台"
   - [x] 写失败只记日志、绝不抛出
   - [x] `plugin/tests/spool.test.ts` 覆盖轮转、截断、写失败吞掉三例
 
-- [ ] T011 [P] 托盘侧 spool 读取 `dsh_tray/notify/spool.py`
-  - [ ] 偏移持久化 `~/.local/state/dsh-tray/spool-offset.json`，内容 `{inode, offset}`；inode 变化 → 从 0 重读
-  - [ ] 逐行解析为 `NotificationEntry` 或 `SessionState`，坏行/未知 `type` 跳过并计数
-  - [ ] `read_new()` 返回 `(notifications, session_states, skipped_count)`
-  - [ ] `test_spool.py` 覆盖「增量读」「轮转后重读」「坏行跳过」
+- [x] T011 [P] 托盘侧 spool 读取 `dsh_tray/notify/spool.py`
+  - [x] 偏移持久化 `~/.local/state/dsh-tray/spool-offset.json`，内容 `{inode, offset}`；inode 变化 → 从 0 重读
+  - [x] 逐行解析为 `NotificationEntry` 或 `SessionState`，坏行/未知 `type` 跳过并计数
+  - [x] `read_new()` 返回 `(notifications, session_states, skipped_count)`
+  - [x] `test_spool.py` 覆盖「增量读」「轮转后重读」「坏行跳过」
 
 - [ ] T012 [P] 插件侧预设与配置 schema `plugin/src/config.ts`
   - [ ] 四组开关结构按 contracts C2：`needs-you{approval,answer}`、`done-error`、`notice`、`other`
