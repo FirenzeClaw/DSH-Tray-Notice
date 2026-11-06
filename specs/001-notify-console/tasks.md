@@ -222,9 +222,9 @@ description: "Task list for 托盘通知控制台"
   - [x] adopted → `?session=<id>`（无 token）
   - [x] 端口非默认时用实际端口；token 与 session 顺序固定
 
-- [ ] T031 [P] [US2] 客户端深链解析测试 `plugin/tests/client.test.ts`
-  - [ ] `?session=abc` → 调 `uiWorkspace.openSession("abc")` 一次，随后 `history.replaceState` 被调用
-  - [ ] `?session=` 空值或会话不存在 → 不调用 openSession，不抛错
+- [x] T031 [P] [US2] 客户端深链解析测试 `plugin/tests/client.test.ts`
+  - [x] `?session=abc` → 调 `uiWorkspace.openSession("abc")` 一次，随后 `history.replaceState` 被调用
+  - [x] `?session=` 空值或会话不存在 → 不调用 openSession，不抛错
 
 ### Implementation for User Story 2
 
@@ -243,10 +243,10 @@ description: "Task list for 托盘通知控制台"
   - [x] 打开失败（无浏览器）→ 记日志 + tooltip 提示，不弹错误框
   - [x] 单测注入假 opener 断言顺序
 
-- [ ] T035 [P] [US2] 客户端深链实现 `plugin/src/client/index.ts`（深链部分）
-  - [ ] 挂载时读 `location.search`；跳转成功后 `history.replaceState` 移除 `session` 参数
-  - [ ] 会话不存在 → 静默落首页（不 alert、不刷屏 console.error）
-  - [ ] T031 转绿
+- [x] T035 [P] [US2] 客户端深链实现 `plugin/src/client/index.ts`（深链部分）
+  - [x] 挂载时读 `location.search`；跳转成功后 `history.replaceState` 移除 `session` 参数
+  - [x] 会话不存在 → 静默落首页（不 alert、不刷屏 console.error）
+  - [x] T031 转绿
 
 - [ ] T036 [US2] 客户端构建脚本 `plugin/scripts/build-client.mjs`
   - [ ] 产物单文件自包含（无相对 import）；React 与 ui-primitives 保持外部裸模块引用
