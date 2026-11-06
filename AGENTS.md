@@ -56,7 +56,7 @@ DSH-Tray&Notice/
 - 只读状态：`./dsh-tray.py --status`
 - 启停：`./dsh-tray.py --start | --restart | --stop`
 - 竞态自检：`./dsh-tray.py --selftest`（用假 dsh 在临时端口跑，不碰 3080）
-- 插件（计划）：`cd plugin && npm run build` / `npm test` / `npm run typecheck`
+- 插件：`cd plugin && npm install --legacy-peer-deps` → `npm run typecheck` / `npm test` / `npm run build`
 - 代码索引：`~/.local/bin/codegraph status`（`~/.local/bin` 不在 PATH 里，用绝对路径）
 <!-- /AUTO:BUILD -->
 
@@ -75,6 +75,11 @@ DSH-Tray&Notice/
    托盘负责系统通知、历史与点击。托盘**不解析** DSH 的配置文件（那是要读全文、要确认的那类文件）。
 6. **未在真机验证的平台必须标注**。没有 Windows 机器就写"未验证 + 验证步骤"，
    不得在文档、提交信息或汇报里暗示已验证。
+7. **绝不要给 `plugin/node_modules` 建指向 DSH 全局安装的符号链接**。
+   npm 会顺着符号链接进入目标目录，把 DSH 的 `node_modules/@deepseek-ai/*` 判为
+   "extraneous" 并删除——本机实测删掉 306 个包，`dsh` 命令当场失效（2026-11-06，
+   已用 `npm i -g @deepseek-ai/dsh@0.2.1-rc.5` 恢复）。需要宿主类型时，把
+   `@deepseek-ai/*` 装成 `devDependencies`（代码里只 `import type`，运行时不依赖）。
 
 ## 工具优先级
 

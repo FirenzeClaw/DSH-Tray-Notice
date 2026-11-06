@@ -7,3 +7,17 @@ __pycache__/
 # specify init 把 speckit 技能复制到这里；全局 ~/.dsh/skills 已有同一套，
 # 提交它们只是重复 200 KB 且会遮蔽全局版本
 .dsh/
+
+# 插件构建产物与依赖
+plugin/node_modules/
+plugin/dist/
+plugin/dist-test/
+
+# 通用
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+.vscode/
+.idea/
