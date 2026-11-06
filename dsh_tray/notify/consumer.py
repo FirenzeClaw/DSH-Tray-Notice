@@ -36,6 +36,15 @@ REPLAY_WINDOW = timedelta(hours=2)
 
 
 @dataclass(frozen=True, slots=True)
+class DeliveredNotification:
+    """一条成功投递的记录：桌面通知 id 与会话/条目的对应关系。"""
+
+    notification_id: int
+    session_id: str
+    entry_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class PollResult:
     """一轮消费的结果。"""
 
@@ -44,6 +53,8 @@ class PollResult:
     skipped: int
     replayed: int
     """补投条数（超过时间窗的不计）。"""
+    deliveries: tuple[DeliveredNotification, ...] = ()
+    """成功投递的明细，供托盘建立点击回执的映射。"""
 
     @property
     def is_empty(self) -> bool:
@@ -132,6 +143,7 @@ class Consumer:
         delivered = 0
         stored = 0
         replayed = 0
+        deliveries: list[DeliveredNotification] = []
         now = self._now()
         for entry in batch.notifications:
             if not self.model.accept(entry, now):
@@ -145,6 +157,10 @@ class Consumer:
                 result = self._deliver(entry)
                 if result.delivered:
                     delivered += 1
+                    if result.notification_id is not None:
+                        deliveries.append(
+                            DeliveredNotification(result.notification_id, entry.session_id, entry.id)
+                        )
                 else:
                     self._logger.warn(f"投递失败（仍入库）：{result.reason}")
             try:
@@ -153,7 +169,7 @@ class Consumer:
             except Exception as error:  # noqa: BLE001 - 历史写失败不该中断消费
                 self._logger.error(f"历史写入失败：{error}")
         self.replayed_total += replayed
-        return PollResult(delivered, stored, batch.skipped, replayed)
+        return PollResult(delivered, stored, batch.skipped, replayed, tuple(deliveries))
 
     def next_interval_ms(self, dsh_running: bool) -> int:
         """下一轮该用多长的间隔。

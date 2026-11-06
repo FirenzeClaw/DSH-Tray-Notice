@@ -17,8 +17,10 @@ from PyQt6.QtWidgets import QMenu, QMessageBox, QSystemTrayIcon
 
 from .. import icons
 from ..lifecycle import Instance, Lifecycle, LifecycleResult, State
+from ..notify.click import handle_click
 from ..notify.consumer import Consumer
 from ..notify.log import Logger, default_log_path
+from ..platform.linux import LinuxActionListener
 
 #: 探测外部启停的间隔。2 s 足够让手动启动在托盘上"很快"出现，
 #: 又不至于让 /proc 扫描变成可观测的负担。
@@ -112,6 +114,10 @@ class TrayApp:
         self._consumer = Consumer(logger=self._logger)
         self._notify_unavailable = False
         self._missed_total = 0
+        #: 桌面通知 id → 会话 id；点击回执只有通知 id，要据此反查会话。
+        self._notified: dict[int, str] = {}
+        self._notified_entry: dict[int, str] = {}
+        self._action_listener = LinuxActionListener(self._on_notification_action)
         self._notify_timer = QTimer()
         self._notify_timer.setInterval(self._consumer.next_interval_ms(False))
         self._notify_timer.timeout.connect(self._on_notify_tick)
@@ -129,6 +135,9 @@ class TrayApp:
         if self._missed_total > 0:
             self._logger.info(f"补投 {self._missed_total} 条")
         self._notify_timer.start()
+        # 订阅失败不影响托盘：只是点通知不会跳转，tooltip 会说明通知不可用。
+        if not self._action_listener.start():
+            self._logger.info("通知点击回执订阅失败（无 D-Bus 或平台不支持）")
 
     def _refresh(self) -> None:
         """按当前探测结果重画图标、tooltip 与菜单可用性。"""
@@ -193,6 +202,16 @@ class TrayApp:
             self._logger.error(f"通知消费失败：{error}")
             return
 
+        # 记录「桌面通知 id → 会话」，点击回执只有 id，得靠这张表反查。
+        for delivery in result.deliveries:
+            self._notified[delivery.notification_id] = delivery.session_id
+            self._notified_entry[delivery.notification_id] = delivery.entry_id
+        if len(self._notified) > 200:
+            # 桌面通知会被系统丢弃，映射表不能无限长；超限时丢最早的一半。
+            for stale in list(self._notified)[:100]:
+                self._notified.pop(stale, None)
+                self._notified_entry.pop(stale, None)
+
         interval = self._consumer.next_interval_ms(running)
         if self._notify_timer.interval() != interval:
             self._notify_timer.setInterval(interval)
@@ -208,6 +227,26 @@ class TrayApp:
             self._notify_unavailable = False
             state, instance = self._lifecycle.state, self._lifecycle.instance
             self._render(state, instance, self._lifecycle.last_error)
+
+    def _on_notification_action(self, notification_id: int, action_key: str) -> None:
+        """系统通知被点击：标记已读并跳到对应会话。
+
+        @param notification_id - 桌面分配的通知 id
+        @param action_key - 动作键（`default` / `open`）
+        """
+        session_id = self._notified.pop(notification_id, None)
+        if session_id is None:
+            # 不是我们发的通知，或已被替换；忽略即可。
+            return
+        entry_id = self._notified_entry.pop(notification_id, "")
+        instance = self._lifecycle.instance
+        handle_click(
+            entry_id,
+            session_id,
+            instance,
+            self._logger,
+            lambda url: webbrowser.open(url),
+        )
 
     @property
     def missed_total(self) -> int:
@@ -309,6 +348,7 @@ class TrayApp:
         """退出托盘。不停止 DSH：托盘和 DSH 的生命周期是分开的。"""
         self._poll_timer.stop()
         self._notify_timer.stop()
+        self._action_listener.stop()
         self._tray.hide()
         self._quit()
 

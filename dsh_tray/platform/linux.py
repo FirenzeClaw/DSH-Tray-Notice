@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Callable, Sequence
 
 from ..probe import child_pids, read_cmdline
 from ..notify.delivery import DeliveryResult, deliver
@@ -201,3 +201,108 @@ class LinuxProcessSampler:
         }
         self._previous_at = now
         return samples
+
+class LinuxActionListener:
+    """订阅桌面通知的点击回执。
+
+    实测结论（本机 Plasma 6.6.6 / Wayland）：
+    - QtDBus 的**自动类型推断对 `Notify` 不可用**（把 `uint32` 推成 `int`、`as` 推成
+      `av`），所以投递走 `gdbus`；
+    - 但 `QDBusConnection.connect(..., "ActionInvoked", slot)` 是可行的，前提是 slot
+      必须是 `@pyqtSlot("uint", "QString")` 修饰的 QObject 方法——不加装饰器时
+      Qt 会把它当普通 Python 方法，签名匹配不上，回调永远不触发。
+
+    本类因此只负责**接收**，不负责投递。
+    """
+
+    #: 动作键白名单：`default` 是点通知本体，`open` 是历史版本里的别名。
+    ACCEPTED_KEYS = frozenset({"default", "open"})
+
+    def __init__(
+        self,
+        on_action: Callable[[int, str], None],
+        service_filter: str = "org.freedesktop.Notifications",
+    ) -> None:
+        """构造。
+
+        @param on_action - 回调：(通知 id, 动作键)
+        @param service_filter - 只接收来自该服务的信号；空串表示不限发送方。
+            生产环境必须是通知守护进程的名字——否则任何进程都能伪造点击；
+            测试时传空串，才能用 `gdbus emit` 从另一条连接模拟信号。
+        """
+        self._callback = on_action
+        self._service_filter = service_filter
+        self._connected = False
+        self._receiver: QObject | None = None
+
+    def start(self) -> bool:
+        """建立订阅。
+
+        需要 QApplication 已创建；在无图形环境调用会返回 False 而不是抛错。
+
+        @returns 是否订阅成功
+        """
+        try:
+            from PyQt6.QtCore import QObject, pyqtSlot
+            from PyQt6.QtDBus import QDBusConnection
+        except ImportError:
+            return False
+
+        callback = self._callback
+        accepted = self.ACCEPTED_KEYS
+
+        class _Receiver(QObject):
+            """必须继承 QObject 才能暴露 D-Bus 槽。"""
+
+            @pyqtSlot("uint", "QString")
+            def on_action(self, notification_id: int, action_key: str) -> None:
+                """D-Bus 回调入口。
+
+                @param notification_id - 桌面分配的通知 id
+                @param action_key - 动作键
+                """
+                if action_key in accepted:
+                    callback(int(notification_id), action_key)
+
+        receiver = _Receiver()
+        bus = QDBusConnection.sessionBus()
+        if not bus.isConnected():
+            return False
+        # PyQt6 的 connect 是 5 参数形式：直接传绑定方法（PyQt 会读取
+        # @pyqtSlot 的签名）。PyQt5 那种 (receiver, "method") 六参数写法在这里
+        # 会报 "too many arguments"。
+        connected = bus.connect(
+            self._service_filter,
+            "/org/freedesktop/Notifications",
+            "org.freedesktop.Notifications",
+            "ActionInvoked",
+            receiver.on_action,
+        )
+        if connected:
+            self._receiver = receiver
+            self._connected = True
+        return connected
+
+    def stop(self) -> None:
+        """断开订阅。"""
+        if self._receiver is None:
+            return
+        try:
+            from PyQt6.QtDBus import QDBusConnection
+
+            QDBusConnection.sessionBus().disconnect(
+                self._service_filter,
+                "/org/freedesktop/Notifications",
+                "org.freedesktop.Notifications",
+                "ActionInvoked",
+                self._receiver.on_action,
+            )
+        except Exception:  # noqa: BLE001 - 断开失败不该影响退出
+            pass
+        self._receiver = None
+        self._connected = False
+
+    @property
+    def connected(self) -> bool:
+        """是否已订阅。"""
+        return self._connected

@@ -217,10 +217,10 @@ description: "Task list for 托盘通知控制台"
 
 ### Tests for User Story 2
 
-- [ ] T030 [P] [US2] 深链拼接测试 `dsh_tray/tests/test_deeplink.py`
-  - [ ] owned 实例（`owned-3080.json` 存在且 pid 匹配）→ `?token=<t>&session=<id>`
-  - [ ] adopted → `?session=<id>`（无 token）
-  - [ ] 端口非默认时用实际端口；token 与 session 顺序固定
+- [x] T030 [P] [US2] 深链拼接测试 `dsh_tray/tests/test_deeplink.py`
+  - [x] owned 实例（`owned-3080.json` 存在且 pid 匹配）→ `?token=<t>&session=<id>`
+  - [x] adopted → `?session=<id>`（无 token）
+  - [x] 端口非默认时用实际端口；token 与 session 顺序固定
 
 - [ ] T031 [P] [US2] 客户端深链解析测试 `plugin/tests/client.test.ts`
   - [ ] `?session=abc` → 调 `uiWorkspace.openSession("abc")` 一次，随后 `history.replaceState` 被调用
@@ -228,20 +228,20 @@ description: "Task list for 托盘通知控制台"
 
 ### Implementation for User Story 2
 
-- [ ] T032 [US2] 深链拼接 `dsh_tray/notify/deeplink.py`
-  - [ ] `build(entry, instance) -> str`：令牌只从 `locks.read_owned_record()` 取，且仅当 pid 与实例一致
-  - [ ] 令牌只进 URL，不进日志与通知正文
-  - [ ] T030 转绿
+- [x] T032 [US2] 深链拼接 `dsh_tray/notify/deeplink.py`
+  - [x] `build(entry, instance) -> str`：令牌只从 `locks.read_owned_record()` 取，且仅当 pid 与实例一致
+  - [x] 令牌只进 URL，不进日志与通知正文
+  - [x] T030 转绿
 
-- [ ] T033 [US2] 点击回执订阅 `dsh_tray/platform/linux.py`（ActionInvoked 部分）
-  - [ ] `QDBusConnection.sessionBus().connect(..., "ActionInvoked", slot)`，slot 用 `@pyqtSlot("uint","QString")` 修饰的 QObject 方法
-  - [ ] 回调签名 `(notif_id, action_key)`，仅 `action_key in ("default","open")` 时触发
-  - [ ] 手工按 quickstart §5 发一条带动作通知，点按钮后托盘日志出现 `ActionInvoked`
+- [x] T033 [US2] 点击回执订阅 `dsh_tray/platform/linux.py`（ActionInvoked 部分）
+  - [x] `QDBusConnection.sessionBus().connect(..., "ActionInvoked", slot)`，slot 用 `@pyqtSlot("uint","QString")` 修饰的 QObject 方法
+  - [x] 回调签名 `(notif_id, action_key)`，仅 `action_key in ("default","open")` 时触发
+  - [x] 手工按 quickstart §5 发一条带动作通知，点按钮后托盘日志出现 `ActionInvoked`
 
-- [ ] T034 [US2] 点击处理 `dsh_tray/notify/click.py`
-  - [ ] 顺序固定：先 `history.mark_read(entry_id)`，再拼深链，再 `QDesktopServices.openUrl`
-  - [ ] 打开失败（无浏览器）→ 记日志 + tooltip 提示，不弹错误框
-  - [ ] 单测注入假 opener 断言顺序
+- [x] T034 [US2] 点击处理 `dsh_tray/notify/click.py`
+  - [x] 顺序固定：先 `history.mark_read(entry_id)`，再拼深链，再 `QDesktopServices.openUrl`
+  - [x] 打开失败（无浏览器）→ 记日志 + tooltip 提示，不弹错误框
+  - [x] 单测注入假 opener 断言顺序
 
 - [ ] T035 [P] [US2] 客户端深链实现 `plugin/src/client/index.ts`（深链部分）
   - [ ] 挂载时读 `location.search`；跳转成功后 `history.replaceState` 移除 `session` 参数
