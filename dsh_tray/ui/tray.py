@@ -175,6 +175,8 @@ class TrayApp:
         self._tray.setIcon(icons.with_badge(base, self._unread))
 
         tooltip = self._tooltip(state, instance, error)
+        if self._missed_total > 0:
+            tooltip = f"{tooltip}\n错过 {self._missed_total} 条通知（打开面板查看）"
         if self._notify_unavailable:
             tooltip = f"{tooltip}\n通知不可用：系统通知服务没有响应"
         self._tray.setToolTip(tooltip)
@@ -245,6 +247,10 @@ class TrayApp:
             panel.hide()
             return
         self._refresh_panel()
+        # 用户已经打开面板看到内容，一次性提示到此为止。
+        if self._missed_total > 0:
+            self._missed_total = 0
+            self._refresh()
         anchor = LinuxWindowAnchor(margin=8)
         geometry = self._tray.geometry()
         tray_rect = (geometry.x(), geometry.y(), geometry.width(), geometry.height())
