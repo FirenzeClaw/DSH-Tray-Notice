@@ -32,11 +32,12 @@ DSH-Tray&Notice/
 │   ├── probe.py           /proc 探测：端口→pid 反查、cmdline 判定、子进程
 │   ├── locks.py           flock 单实例锁、操作锁、自有实例账本
 │   ├── lifecycle.py       状态机与 start/adopt/stop（不依赖 Qt）
-│   ├── ui.py              托盘图标、菜单、确认对话框
+│   ├── ui/                托盘与面板（tray.py 为托盘本体）
 │   ├── icons.py           鲸鱼 SVG → QIcon
 │   ├── selftest.py        竞态自检（假 dsh，不碰 3080）
-│   └── platform/          [计划] Linux / Windows 后端
-├── plugin/                [计划] DSH 插件（TypeScript）
+│   ├── notify/            通知域（spool、投递、历史、会话表、采样）
+│   └── platform/          平台层（base 协议 + linux 实现）
+├── plugin/                DSH 插件（TypeScript，服务端 + 客户端）
 ├── design/                交互设计稿（HTML，可交互）
 ├── research/              调研记录
 ├── docs/                  设计共识与说明
@@ -57,6 +58,11 @@ DSH-Tray&Notice/
 - 启停：`./dsh-tray.py --start | --restart | --stop`
 - 竞态自检：`./dsh-tray.py --selftest`（用假 dsh 在临时端口跑，不碰 3080）
 - 插件：`cd plugin && npm install --legacy-peer-deps` → `npm run typecheck` / `npm test` / `npm run build`
+- 托盘测试（含离屏 GUI）：`python3 -m unittest discover -s dsh_tray/tests -t .`
+  （GUI 用例需 `QT_QPA_PLATFORM=offscreen`；直接跑 discover 也能过，因为用例内部自己设了）
+- 装插件进 profile：`dsh plugin --profile web add "link:$PWD/plugin"`，再用
+  `dsh --profile web --dump-config | grep tray-notify` 确认（**不写 cordis.patch.yml**，
+  走的是 `package.json` 的 `dsh.profile.bundles` + 插件自带 patch）
 - 代码索引：`~/.local/bin/codegraph status`（`~/.local/bin` 不在 PATH 里，用绝对路径）
 <!-- /AUTO:BUILD -->
 

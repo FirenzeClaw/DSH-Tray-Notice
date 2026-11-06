@@ -1,7 +1,8 @@
-# DSH 托盘启动器 · 设计共识
+# DSH 托盘启动器 + 通知控制台 · 设计共识
 
-状态：已批准（2026-11-02）
-范围：单个启动器 + 托盘，不含 DSH 本体改动。
+状态：已批准（2026-11-02 初版；2026-11-06 并入通知控制台）
+范围：启动器 + 托盘 + 通知管线 + 面板。**DSH 本体不改动**——通知能力以插件形式
+挂在 profile 上，托盘不解析 DSH 的配置文件。
 
 ## 目标
 
@@ -22,6 +23,52 @@
 | 应用名 | `DSH-Tray`（`applicationName` + `DesktopFileName=dsh-tray`） | 不设置时 Qt 用脚本文件名 `dsh-tray.py`，在托盘里像是没装好的脚本 |
 | 停止后 | 托盘常驻，图标变灰 | 符合"托盘自启、DSH 手动启动" |
 | 实现方案 | 单 Python 进程（PyQt6），`lifecycle` 不依赖 Qt | 竞态在单进程内可真正串行化；CLI 路径可无 GUI 验证 |
+
+## 通知控制台（2026-11-06 并入）
+
+### 分工
+
+| 角色 | 负责 | 不负责 |
+|---|---|---|
+| 插件（`plugin/`） | 决定哪些事件值得通知、文案是什么、去重键 | 投递、历史、点击 |
+| 托盘（`dsh_tray/notify/`） | 读 spool、去重、投递、存历史、处理点击 | 判断该不该通知 |
+
+契约是文件 spool：插件写 NDJSON，托盘增量读。选文件而不是 socket，是因为托盘可能比
+DSH 晚启动、早退出、被杀重启——文件让两侧完全解耦，托盘下次启动照样补投。
+
+### 面板
+
+四标签（未查看 / 已查看 / 工作中 / 概览）+ 控制区五态。左键开面板、右键菜单。
+设计稿见 `design/notification-panel.html`，实现对照它验收。
+
+为什么用 `Qt.Tool | FramelessWindowHint` 而不是 `Qt.Popup`：**后者在 Wayland 上创建
+失败**（实测 `Failed to create grabbing popup … has no transientParent`），窗口根本
+不可见。代价是 `Qt.Tool` 会抢焦点，用 `focusOut` 自动隐藏补偿。
+
+### 通知行为
+
+| 决策 | 结论 | 理由 |
+|---|---|---|
+| 投递方式 | `gdbus` 显式类型调用 | `notify-send --action` 报「Actions are not supported」，而 `GetCapabilities` 含 `actions`；`gdbus` 实测成功返回 `uint32 155` |
+| gdbus 参数格式 | `uint32 0`（空格） | 冒号写法报「解析 u 类型的第 2 个参数时发生错误」，且**静默回退到 notify-send**（通知照弹、没有按钮） |
+| 点击回执 | `QDBusConnection.connect` + `@pyqtSlot("uint","QString")` | PyQt6 是 5 参数形式，直接传绑定方法；PyQt5 的六参数写法报 too many arguments |
+| 令牌 | 只在托盘一侧，插件只写 `?session=` | 令牌是进程级随机数；插件拿不到也不该拿 |
+| 已查看 | 不删除，按日期分组长期保留 | 回查「上周那个任务后来怎么样了」 |
+| 预设 | 安静保留「提示」 | 提示承载「你可能卡住了」，是安静模式下仍值得打扰的信息 |
+| 取消/中断 | 归 `other` 组，默认不通知 | 用户自己按的停止，再弹一条是噪声 |
+| 挂起完成 | 父会话结束等子会话，宽限 2s / 上限 15min | 子代理还在跑时说「已完成」是谎报 |
+| 补投窗口 | 2 小时 | 更早的事件弹出来只会让人困惑「这是刚发生的吗」 |
+
+### 关键环境事实（通知部分，实测）
+
+| 事实 | 证据 |
+|---|---|
+| `Qt.Popup` 在 Wayland 创建失败 | `Failed to create grabbing popup … has no transientParent` |
+| `tray.geometry()` 在 Plasma Wayland 返回 0×0 | 锚点退化到屏幕右上角 |
+| `notify-send --action` 不可用但 D-Bus 支持 actions | `GetCapabilities` 含 `actions`；`gdbus` 返回 `(uint32 158,)` |
+| 离屏下 widget 可实例化且布局真实计算 | `QT_QPA_PLATFORM=offscreen` 下面板实测 378×276 |
+| `ActionInvoked` 可端到端接收 | `gdbus emit` 模拟后收到 `(159, 'default')` |
+| `TurnEndReason` 是 `{kind}` 对象联合 | `dsh-session/lib/types/types.d.ts:166` |
 
 ## 关键环境事实（实测）
 

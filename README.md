@@ -1,9 +1,24 @@
 # dsh-tray
 
-KDE Plasma 6 (Wayland) 桌面上带托盘的 DeepSeek-Harness（`dsh web`）启动器。
-从托盘启动 / 停止 / 打开 Web UI，所有启停路径带竞态规避。
+KDE Plasma 6 (Wayland) 桌面上带托盘的 DeepSeek-Harness（`dsh web`）启动器 **+ 通知控制台**。
+从托盘启动 / 停止 / 打开 Web UI，所有启停路径带竞态规避；DSH 的事件（跑完了、出错了、
+需要你审批、需要你回答）会被抬成系统通知，点通知直接回到那个会话。
 
 ![托盘图标](icons/dsh-tray.svg)
+
+## 它解决什么问题
+
+DSH 本身**没有**桌面通知：它只在 Web UI 里显示状态。所以你让它跑一个长任务，只能
+盯着浏览器；切到别的事上，就不知道它跑完没有、有没有在等你。
+
+这个仓库做两件事：
+
+1. **托盘启动器**（原有能力）：启停 DSH、管令牌、竞态安全。
+2. **通知控制台**（本规格新增）：插件把事件写进 spool，托盘读出来投递成系统通知，
+   并存进历史供事后回查。托盘是**唯一投递者**，插件是**唯一策略点**。
+
+分工的理由：策略（哪些事件值得打扰你）随版本变，放在插件里改起来快；投递（系统通知、
+点击、历史）依赖桌面环境，放在托盘里才能跨平台。
 
 ## 用法
 
@@ -22,11 +37,51 @@ KDE Plasma 6 (Wayland) 桌面上带托盘的 DeepSeek-Harness（`dsh web`）启�
 开机自启已装到 `~/.config/autostart/dsh-tray.desktop`：登录后托盘出现，
 **DSH 本身不会自动启动**，需要时从托盘菜单点「启动 DSH」。
 
+## 面板（左键托盘图标）
+
+四个标签：
+
+| 标签 | 内容 |
+|---|---|
+| 未查看 | 还没看过的通知；点一条即标记已读并跳到该会话 |
+| 已查看 | 看过的通知，按日期分组（今天 / 昨天 / 本周 / 日期），**不删除**，可随时翻回去 |
+| 工作中 | 正在跑的会话：标题、第几轮、当前工具、已跑时长（每秒自增） |
+| 概览 | DSH 及其子进程的 CPU / 内存；只在面板打开时采样 |
+
+面板顶部是控制区，五态显示（未运行 / 启动中 / 运行中·自有 / 运行中·接管 / 停止中 /
+失败），主操作随状态切换。接管态会提示「拿不到访问令牌」，并建议用「重启」换成自有实例。
+
+右键托盘图标仍是菜单，新增「打开面板」。
+
+## 通知
+
+### 三档预设
+
+| 预设 | 会通知什么 |
+|---|---|
+| 安静 | 需要你（审批 / 提问）+ 提示（例如「你可能卡住了」） |
+| 标准 | 安静 + 完成与出错（跑完、出错、阻塞、超限） |
+| 详细 | 标准 + 其它信息性（后台任务、目标变更、取消与中断） |
+
+在 DSH 设置页的「DSH 通知」分区切换，**即时生效**，不需要重启。逐组改动后标签变成
+「自定义」；把值改回与某档一致时标签自动回到该档。
+
+### 通知的行为
+
+- **点通知回到会话**：点通知本体或「打开会话」按钮，直接落在该会话。
+- **需要你的通知不自动消失**（critical），其余 5 秒后消失。
+- **跑完的通知会等子会话**：父会话结束但子代理还在跑时，先等最多 2 秒；
+  超过 15 分钟仍未收尾就丢弃，不误报。
+- **托盘不在时不丢**：事件留在 spool 里，托盘下次启动补投。超过 2 小时的只进历史、
+  不弹系统通知，tooltip 与面板顶部显示「错过 N 条」。
+- **与 target-monitor 兼容**：它注入的 notice（「你可能卡住了」）会被抬成「提示」类
+  桌面通知，会话内的那条提示照旧存在。
+
 ## 菜单
 
 | 状态 | 菜单 |
 |---|---|
-| 未运行 | 打开 Web UI（灰）· **启动 DSH** · 退出托盘 |
+| 未运行 | 打开 Web UI（灰）· **启动 DSH** · 打开面板 · 退出托盘 |
 | 启动/停止中 | 打开（灰）· 重启/停止（灰）· 退出托盘 |
 | 运行中 | **打开 Web UI** · **重启 DSH** · **停止 DSH** · 退出托盘 |
 
@@ -77,7 +132,11 @@ tooltip 会写明「由托盘启动」还是「外部启动 PID nnn」。
 | 外部启动的实例打开后 401 | 令牌拿不到是设计如此；菜单里停止再启动一次即可。或直接在浏览器访问带 token 的旧 URL（30 天 cookie 内不需要） |
 | 托盘不出现 | `./dsh-tray.py --status` 先看 DSH 状态；`ps -eo pid,args \| grep dsh-tray` 看进程在不在。Plasma 托盘设置里可能把图标藏了（系统设置 → 通知与时间 → 托盘） |
 | 启动托盘时报「不能从 DSH 的工具会话里启动」 | 这是有意拦截。DSH 的每次工具调用都在独立的 systemd scope 里，scope 一拆除（工具调用结束、DSH 重启）会连带杀掉托盘。请从应用菜单「DSH-Tray」或开机自启启动 |
-| 日志 | `~/.local/state/dsh-tray/logs/dsh-web.log`（子进程 stdout/stderr）与 `~/.local/state/dsh-tray/tray.lock`（锁持有者 pid） |
+| 通知弹不出来 | 看 tooltip 是否写着「通知不可用」。`gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications --method org.freedesktop.Notifications.GetCapabilities` 确认服务在。没有 `gdbus` 时会退回 `notify-send`（**没有动作按钮**，点通知不会跳转） |
+| 点通知没反应 | 通知动作需要 `gdbus`。`which gdbus` 为空时只能回退 `notify-send`。另外「接管」的实例拿不到令牌，跳过去可能 401，用「重启」换成自有实例 |
+| 设置页没有「DSH 通知」分区 | 确认插件已装：`dsh --profile web --dump-config \| grep tray-notify`。改完插件要重启 DSH 才生效 |
+| 面板不出现（左键无反应） | 面板用 `Qt.Tool` 窗口，不抢任务栏；若被其他窗口遮住，用右键菜单「打开面板」。Wayland 下 `tray.geometry()` 返回 0×0 是已知行为，面板会退化到屏幕右上角 |
+| 日志 | `~/.local/state/dsh-tray/logs/dsh-web.log`（子进程 stdout/stderr）、`~/.local/state/dsh-tray/tray.log`（托盘与通知管线，令牌已脱敏）、`~/.dsh/run/tray-notify/plugin.log`（插件侧）、`~/.dsh/run/tray-notify/events.jsonl`（spool，可 `tail -f` 看事件流） |
 
 ## 与 DSH 的进程隔离
 
@@ -98,21 +157,75 @@ tooltip 会写明「由托盘启动」还是「外部启动 PID nnn」。
   venv 里没有 PyQt6）
 - `~/.local/bin/dsh`（已有的 NVM 包装脚本；找不到时退回 PATH 里的 `dsh`）
 - Plasma 的 StatusNotifier 托盘宿主（KDE 默认有）
+- **`gdbus`**（`glib2` 提供）——通知的动作按钮靠它；缺失时退回 `notify-send`，
+  通知仍会弹出，但点通知不会跳转会话
+- Node ≥ 22（只用于构建与测试插件；运行时不需要 Node）
 
 ## 文件
 
 ```
-dsh-tray.py              入口与 CLI
-dsh_tray/probe.py        /proc 探测（端口→pid 反查、cmdline 判定、子进程枚举）
-dsh_tray/locks.py        flock 单实例锁、操作锁、自有实例账本
-dsh_tray/lifecycle.py    状态机与 start/adopt/stop（不依赖 Qt）
-dsh_tray/ui.py           托盘图标、菜单、确认对话框
-dsh_tray/icons.py        鲸鱼 SVG → QIcon
-dsh_tray/selftest.py     竞态自检
-scripts/dsh-tray.sh      启动包装（补 NVM/PATH 环境）
-docs/design.md           设计共识（已批准）
-icons/                   桌面图标（方形画布版）
+dsh-tray.py                    入口与 CLI
+dsh_tray/probe.py              /proc 探测（端口→pid 反查、cmdline 判定、子进程枚举）
+dsh_tray/locks.py              flock 单实例锁、操作锁、自有实例账本
+dsh_tray/lifecycle.py          状态机与 start/adopt/stop（不依赖 Qt）
+dsh_tray/selftest.py           竞态自检
+dsh_tray/icons.py              鲸鱼 SVG → QIcon（含未读角标）
+dsh_tray/notify/types.py       跨进程契约类型（与 plugin/src/types.ts 对齐）
+dsh_tray/notify/spool.py       增量读 spool（偏移带 inode）
+dsh_tray/notify/intents.py     去重窗口、紧急度、相对时间
+dsh_tray/notify/delivery.py    gdbus 投递（回退 notify-send）
+dsh_tray/notify/history.py     历史持久化、淘汰、日期分组
+dsh_tray/notify/consumer.py    消费循环（读→去重→投递→入库）
+dsh_tray/notify/sessionstate.py 活动会话表与时长
+dsh_tray/notify/sampling.py    /proc 采样
+dsh_tray/notify/deeplink.py    会话深链拼接（令牌注入）
+dsh_tray/notify/click.py       点击处理（标记已读→拼链接→打开）
+dsh_tray/notify/log.py         托盘日志（令牌脱敏）
+dsh_tray/platform/             平台层（base 协议 + linux 实现）
+dsh_tray/ui/tray.py            托盘图标、菜单、面板接线
+dsh_tray/ui/panel.py           面板容器与四标签
+dsh_tray/ui/control.py         控制区五态
+dsh_tray/ui/notiflist.py       通知列表与批量操作
+dsh_tray/ui/working.py         工作中页
+dsh_tray/ui/overview.py        概览页
+plugin/                        DSH 插件（TypeScript）
+  src/index.ts                 事件接线 → spool
+  src/events.ts                事件 → 通知意图（纯函数）
+  src/config.ts                四组开关与三档预设
+  src/spool.ts                 NDJSON 写入与轮转
+  src/client/index.ts          深链 + 设置分区（客户端）
+scripts/dsh-tray.sh            启动包装（补 NVM/PATH 环境）
+scripts/build-plugin.sh        插件构建与安装
+docs/design.md                 设计共识（已批准）
+specs/001-notify-console/      规格、计划、任务、验收记录
+design/notification-panel.html 交互设计稿
+icons/                         桌面图标（方形画布版）
 ```
+
+## 开发
+
+```sh
+# 托盘侧测试（含离屏 GUI 断言）
+python3 -m unittest discover -s dsh_tray/tests -t .
+
+# 竞态自检（用假 dsh，不碰 3080）
+./dsh-tray.py --selftest
+
+# 插件
+cd plugin
+npm install --legacy-peer-deps   # 会装 @deepseek-ai/* 作为 devDependency（仅类型）
+npm run typecheck
+npm test                          # node --test 自动发现 tests/*.test.ts
+npm run build                     # tsc + 客户端单文件打包
+
+# 装进 web profile（本地开发用 link:）
+dsh plugin --profile web add "link:$PWD/plugin"
+dsh --profile web --dump-config | grep tray-notify   # 确认已生效
+```
+
+**不要**给 `plugin/node_modules` 建指向 DSH 全局安装的符号链接：`npm install` 会顺着
+链接进入目标目录，把 DSH 的 `@deepseek-ai/*` 判为 extraneous 并删除（实测删掉 306 个
+包，`dsh` 命令当场失效）。
 
 安装位置：`~/.local/share/applications/dsh-tray.desktop`（应用菜单）、
 `~/.config/autostart/dsh-tray.desktop`（自启）。
