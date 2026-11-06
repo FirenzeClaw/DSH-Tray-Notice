@@ -491,17 +491,17 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [ ] 按 §0–§5 逐步执行，修正与实际不符处
   - [ ] §5 需人工点击的部分标注清楚
 
-- [ ] T074 SC 逐条核对（SC-001~008）
-  - [ ] 八条各有实测数据或明确的「未验证」标注
-  - [ ] 结果写入 `specs/001-notify-console/` 的验收记录
+- [x] T074 SC 逐条核对（SC-001~008）
+  - [x] 八条各有实测数据或明确的「未验证」标注
+  - [x] 结果写入 `specs/001-notify-console/` 的验收记录
 
-- [ ] T075 [P] 清理探针残留
-  - [ ] 删除 `/tmp/wl_popup_spike*.py`、`/tmp/tray_probe.py`、`/tmp/notify_probe.py`、`/tmp/sig_probe.py`、`/tmp/anchor_probe.py`
-  - [ ] `ls /tmp/*probe*.py /tmp/wl_popup_spike*.py` 无输出
+- [x] T075 [P] 清理探针残留
+  - [x] 删除 `/tmp/wl_popup_spike*.py`、`/tmp/tray_probe.py`、`/tmp/notify_probe.py`、`/tmp/sig_probe.py`、`/tmp/anchor_probe.py`
+  - [x] `ls /tmp/*probe*.py /tmp/wl_popup_spike*.py` 无输出
 
-- [ ] T076 安全复查
-  - [ ] `grep -rn "token=" plugin/ dsh_tray/` 确认令牌只出现在 deeplink 拼接与 owned 账本读取处
-  - [ ] spool 与状态文件权限为 0600、目录 0700
+- [x] T076 安全复查
+  - [x] `grep -rn "token=" plugin/ dsh_tray/` 确认令牌只出现在 deeplink 拼接与 owned 账本读取处
+  - [x] spool 与状态文件权限为 0600、目录 0700
 
 ---
 

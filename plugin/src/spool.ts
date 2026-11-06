@@ -12,7 +12,7 @@
  * @module
  */
 
-import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from 'node:fs'
+import { appendFileSync, chmodSync, existsSync, mkdirSync, renameSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import type { Logger } from './log.ts'
@@ -87,7 +87,13 @@ export interface SpoolWriter {
 export function createSpoolWriter(filePath: string, logger: Logger): SpoolWriter {
   const append = (row: SpoolRow): void => {
     try {
-      mkdirSync(dirname(filePath), { recursive: true })
+      mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 })
+      // 目录里有 openUrl（含 session）与会话标题，按 0700 收口；已存在的也改。
+      try {
+        chmodSync(dirname(filePath), 0o700)
+      } catch {
+        // 权限改不动（例如目录属主不是当前用户）不阻断写入。
+      }
       // 轮转检查放在写前：写完再查会让单次写入可能超出上限一倍。
       if (existsSync(filePath) && statSync(filePath).size > MAX_FILE_BYTES) {
         try {
@@ -97,7 +103,13 @@ export function createSpoolWriter(filePath: string, logger: Logger): SpoolWriter
         }
       }
       const line = `${JSON.stringify(truncateBody(row))}\n`
-      appendFileSync(filePath, line, 'utf8')
+      // mode 只在创建时生效，所以创建后再显式 chmod 一次（默认 umask 给 0664）。
+      appendFileSync(filePath, line, { encoding: 'utf8', mode: 0o600 })
+      try {
+        chmodSync(filePath, 0o600)
+      } catch {
+        // 同上：改不动就算了，不阻断事件写入。
+      }
     } catch (error) {
       logger.warn(`spool 写入失败（${filePath}）：${error instanceof Error ? error.message : String(error)}`)
     }

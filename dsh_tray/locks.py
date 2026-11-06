@@ -27,6 +27,12 @@ def state_dir() -> Path:
     base = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
     path = Path(base) / "dsh-tray"
     path.mkdir(parents=True, exist_ok=True)
+    # 目录收紧到 0700：里面有带令牌的账本与通知历史（可能含命令与路径）。
+    # 已存在的目录也要改，因为早期版本建的是默认权限（实测 0775）。
+    try:
+        os.chmod(path, 0o700)
+    except OSError:
+        pass
     return path
 
 
@@ -150,6 +156,11 @@ def write_owned_record(record: "OwnedRecord") -> None:
     # 先写临时文件再原子替换：读到半截 JSON 比读到旧账本更糟。
     tmp = path.with_suffix(".tmp")
     tmp.write_text(payload, encoding="utf-8")
+    # 账本里有带令牌的 URL，必须 0600（默认 umask 会给 0664）。
+    try:
+        os.chmod(tmp, 0o600)
+    except OSError:
+        pass
     tmp.replace(path)
 
 

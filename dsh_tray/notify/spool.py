@@ -90,9 +90,10 @@ def save_offset(state_dir: Path, spool_path: Path, offset: int) -> None:
         return
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
-        _state_path(state_dir).write_text(
-            json.dumps({"inode": inode, "offset": offset}), encoding="utf-8"
-        )
+        path = _state_path(state_dir)
+        path.write_text(json.dumps({"inode": inode, "offset": offset}), encoding="utf-8")
+        # 偏移文件不含敏感内容，但状态目录整体按 0700/0600 收口更简单一致。
+        path.chmod(0o600)
     except OSError:
         return
 
