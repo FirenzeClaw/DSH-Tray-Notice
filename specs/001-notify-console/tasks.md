@@ -361,31 +361,31 @@ V5a = 工作中（T038、T039、T051、T052）。
 
 ### Tests for User Story 4
 
-- [ ] T053 [P] [US4] 采样测试 `dsh_tray/tests/test_sampling.py`
-  - [ ] 两次 `/proc/<pid>/stat` 假读数 → CPU% 正确；首次采样返回 `None`
-  - [ ] `VmRSS` 解析为字节；进程消失 → 该行移除而不是报错
+- [x] T053 [P] [US4] 采样测试 `dsh_tray/tests/test_sampling.py`
+  - [x] 两次 `/proc/<pid>/stat` 假读数 → CPU% 正确；首次采样返回 `None`
+  - [x] `VmRSS` 解析为字节；进程消失 → 该行移除而不是报错
 
-- [ ] T054 [P] [US4] 概览页离屏测试 `dsh_tray/tests/test_overview.py`
-  - [ ] 首次采样渲染出「待采样」占位而不是 0%
-  - [ ] 合计值 = 各行之和（CPU、内存、进程数）
-  - [ ] `hide()` 后采样 QTimer 处于停止状态（断言 `isActive()` 为 False）
+- [x] T054 [P] [US4] 概览页离屏测试 `dsh_tray/tests/test_overview.py`
+  - [x] 首次采样渲染出「待采样」占位而不是 0%
+  - [x] 合计值 = 各行之和（CPU、内存、进程数）
+  - [x] `hide()` 后采样 QTimer 处于停止状态（断言 `isActive()` 为 False）
 
 ### Implementation for User Story 4
 
-- [ ] T055 [US4] 采样实现 `dsh_tray/notify/sampling.py`
-  - [ ] `sample_once()` 返回 `list[ProcessSample]`；内部保留上次读数用于求差
-  - [ ] 只读 `/proc`，不 fork 外部命令
-  - [ ] T053 转绿
+- [x] T055 [US4] 采样实现 `dsh_tray/notify/sampling.py`
+  - [x] `sample_once()` 返回 `list[ProcessSample]`；内部保留上次读数用于求差
+  - [x] 只读 `/proc`，不 fork 外部命令
+  - [x] T053 转绿
 
 - [ ] T056 [US4] 进程角色归类 `dsh_tray/platform/linux.py`（ProcessSampler 部分）
   - [ ] `core`（cmdline 含 `dsh web`）/ `mcp`（含 `mcp`）/ `tool`（dsh 子孙且非前两者）/ `other`
   - [ ] 复用 `probe.child_pids()` 枚举
   - [ ] 手工：概览里 MCP 与 bash 子进程标签正确
 
-- [ ] T057 [US4] 概览页 `dsh_tray/ui/overview.py`
-  - [ ] 顶部合计、按角色分组的行、页脚口径说明（单核百分比、ΣRSS 含共享页）
-  - [ ] QTimer 2s 仅在页面可见时运行；`hide` 即 `stop()`
-  - [ ] T054 转绿
+- [x] T057 [US4] 概览页 `dsh_tray/ui/overview.py`
+  - [x] 顶部合计、按角色分组的行、页脚口径说明（单核百分比、ΣRSS 含共享页）
+  - [x] QTimer 2s 仅在页面可见时运行；`hide` 即 `stop()`
+  - [x] T054 转绿
 
 ---
 

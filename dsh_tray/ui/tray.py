@@ -21,8 +21,10 @@ from ..notify.click import handle_click
 from ..notify.sessionstate import SessionTable
 from .control import ControlArea
 from .notiflist import NotificationListPage, read_count, unread_count
+from .overview import OverviewPage
+from ..platform import create_sampler
 from ..platform.linux import LinuxWindowAnchor
-from .panel import PANEL_WIDTH, TAB_READ, TAB_UNREAD, TAB_WORKING, Panel
+from .panel import PANEL_WIDTH, TAB_OVERVIEW, TAB_READ, TAB_UNREAD, TAB_WORKING, Panel
 from .working import WorkingPage
 from ..notify.consumer import Consumer
 from ..notify.log import Logger, default_log_path
@@ -229,6 +231,8 @@ class TrayApp:
         panel.add_page(TAB_UNREAD, self._unread_page)
         panel.add_page(TAB_READ, self._read_page)
         panel.add_page(TAB_WORKING, self._working_page)
+        self._overview_page = OverviewPage(self._sample_processes)
+        panel.add_page(TAB_OVERVIEW, self._overview_page)
 
         self._control = control
         self._panel = panel
@@ -262,6 +266,17 @@ class TrayApp:
         self._unread_page.refresh()
         self._read_page.refresh()
         self._working_page.refresh()
+
+    def _sample_processes(self):
+        """采样 DSH 及其子进程，供概览页使用。
+
+        @returns 采样行；DSH 未运行时为空
+        """
+        instance = self._lifecycle.instance
+        if instance is None or self._lifecycle.state is not State.RUNNING:
+            return []
+        sampler = create_sampler()
+        return list(sampler.sample(instance.pid))
 
     def _on_panel_primary(self) -> None:
         """面板主操作：未运行时启动，运行中打开 Web UI。"""
