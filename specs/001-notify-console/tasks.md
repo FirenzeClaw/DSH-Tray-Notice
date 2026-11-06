@@ -128,13 +128,13 @@ description: "Task list for 托盘通知控制台"
 
 ### Tests for User Story 1
 
-- [ ] T016 [P] [US1] 通知意图生成测试 `plugin/tests/events.test.ts`
-  - [ ] `turn/end(completed)` → `kind:"done"`、`urgency:"normal"`、`dedupeKey:"done:<sid>:<turn>"`
-  - [ ] `turn/end(error)` → `kind:"error"` 且正文含错误码；`blocked` / `max-tokens` 各有对应用例
-  - [ ] `approval/asked` → `kind:"needs-approval"`、`urgency:"critical"`、`dedupeKey:"approval:<id>"`
-  - [ ] `job/settled` → `kind:"job"`；`goal/changed` → `kind:"goal"`（两者归 `other` 组）
-  - [ ] 子会话 `turn/end` 在 `subagents:false` 下不产生意图
-  - [ ] 正文超 `bodyLimit` 时截断并加省略号
+- [x] T016 [P] [US1] 通知意图生成测试 `plugin/tests/events.test.ts`
+  - [x] `turn/end(completed)` → `kind:"done"`、`urgency:"normal"`、`dedupeKey:"done:<sid>:<turn>"`
+  - [x] `turn/end(error)` → `kind:"error"` 且正文含错误码；`blocked` / `max-tokens` 各有对应用例
+  - [x] `approval/asked` → `kind:"needs-approval"`、`urgency:"critical"`、`dedupeKey:"approval:<id>"`
+  - [x] `job/settled` → `kind:"job"`；`goal/changed` → `kind:"goal"`（两者归 `other` 组）
+  - [x] 子会话 `turn/end` 在 `subagents:false` 下不产生意图
+  - [x] 正文超 `bodyLimit` 时截断并加省略号
 
 - [ ] T017 [P] [US1] 挂起完成测试 `plugin/tests/defer.test.ts`
   - [ ] 父会话 `turn/end(completed)` 且子会话仍 working → 不立即产出通知
@@ -154,11 +154,11 @@ description: "Task list for 托盘通知控制台"
 
 ### Implementation for User Story 1
 
-- [ ] T020 [US1] 实现通知意图生成 `plugin/src/events.ts`
-  - [ ] `toNotification(event)` 覆盖 `turn/end`、`approval/asked`、`job/settled`、`goal/changed`
-  - [ ] `openUrl` 只写 `http://127.0.0.1:<port>/?session=<sid>`，**不含令牌**
-  - [ ] 正文超 `bodyLimit`（默认 200）截断
-  - [ ] T016 转绿
+- [x] T020 [US1] 实现通知意图生成 `plugin/src/events.ts`
+  - [x] `toNotification(event)` 覆盖 `turn/end`、`approval/asked`、`job/settled`、`goal/changed`
+  - [x] `openUrl` 只写 `http://127.0.0.1:<port>/?session=<sid>`，**不含令牌**
+  - [x] 正文超 `bodyLimit`（默认 200）截断
+  - [x] T016 转绿
 
 - [ ] T021 [US1] 实现挂起完成 `plugin/src/defer.ts`
   - [ ] 挂起表键为父会话 id；记录子会话集合与挂起起始时刻
