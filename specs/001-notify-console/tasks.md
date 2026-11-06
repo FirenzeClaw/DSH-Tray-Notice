@@ -285,10 +285,10 @@ V5a = 工作中（T038、T039、T051、T052）。
   - [x] 快照为全量替换：新快照缺少的会话从表中移除
   - [x] `state == "waiting-user"` 的会话带等待标记
 
-- [ ] T040 [P] [US3] 面板离屏测试 `dsh_tray/tests/test_panel.py`
-  - [ ] 四个标签宽度两两相差 ≤ 1px；文字水平居中（加/不加计数都不偏移）
-  - [ ] 五态各渲染一次：未运行 → 只有「启动」可用；运行中 → 「打开 Web UI」可用；启动中 → 全部禁用
-  - [ ] 托盘图标在未读 > 0 时带角标，= 0 时无角标
+- [x] T040 [P] [US3] 面板离屏测试 `dsh_tray/tests/test_panel.py`
+  - [x] 四个标签宽度两两相差 ≤ 1px；文字水平居中（加/不加计数都不偏移）
+  - [x] 五态各渲染一次：未运行 → 只有「启动」可用；运行中 → 「打开 Web UI」可用；启动中 → 全部禁用
+  - [x] 托盘图标在未读 > 0 时带角标，= 0 时无角标
 
 - [ ] T041 [P] [US6] 通知列表离屏测试 `dsh_tray/tests/test_notiflist.py`
   - [ ] 点击未查看行 → 该行出现在已查看页，未查看计数减一
@@ -302,15 +302,15 @@ V5a = 工作中（T038、T039、T051、T052）。
 
 ### Implementation for User Story 3
 
-- [ ] T043 [US3] 面板容器 `dsh_tray/ui/panel.py`
-  - [ ] `Qt.Tool | FramelessWindowHint`；显示前按锚点策略 `move()`；`focusOut` / `WindowDeactivate` 隐藏
-  - [ ] 四标签等宽、文字居中、计数绝对定位（对照 design/notification-panel.html）
-  - [ ] T040 中与标签、角标相关的断言转绿
+- [x] T043 [US3] 面板容器 `dsh_tray/ui/panel.py`
+  - [x] `Qt.Tool | FramelessWindowHint`；显示前按锚点策略 `move()`；`focusOut` / `WindowDeactivate` 隐藏
+  - [x] 四标签等宽、文字居中、计数绝对定位（对照 design/notification-panel.html）
+  - [x] T040 中与标签、角标相关的断言转绿
 
-- [ ] T044 [US3] 控制区 `dsh_tray/ui/control.py`
-  - [ ] 五态渲染（未运行 / 启动中 / 运行中·自有 / 运行中·接管 / 停止中 / 失败）与元信息
-  - [ ] 主操作随状态切换；接管态显示琥珀提示；失败态显示占用者
-  - [ ] T040 中与控制区相关的断言转绿
+- [x] T044 [US3] 控制区 `dsh_tray/ui/control.py`
+  - [x] 五态渲染（未运行 / 启动中 / 运行中·自有 / 运行中·接管 / 停止中 / 失败）与元信息
+  - [x] 主操作随状态切换；接管态显示琥珀提示；失败态显示占用者
+  - [x] T040 中与控制区相关的断言转绿
 
 - [ ] T045 [US3] 控制区动作接线 `dsh_tray/ui/control.py` + `dsh_tray/ui/tray.py`
   - [ ] 启动/停止/重启/打开复用既有 `Lifecycle` 与 `_confirm`；危险操作默认按钮为「取消」
