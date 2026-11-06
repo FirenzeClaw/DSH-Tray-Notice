@@ -72,13 +72,28 @@
 
 ### Preset（预设）
 
+**枚举值**（持久化的就是这四个字符串，界面只做标签映射）：
+`quiet` → 安静、`standard` → 标准、`verbose` → 详细、`custom` → 自定义。
+
+**开关粒度 = 组**（对齐 spec FR-002 的四组）；「需要你」组内再拆两个子项：
+
+| 组键 | 中文标签 | 含哪些 kind | 组内子项 |
+|---|---|---|---|
+| `needs-you` | 需要你 | `needs-approval`、`needs-answer` | `approval`、`answer`（可分别关） |
+| `done-error` | 完成与出错 | `done`、`error`、`blocked`、`max-tokens` | — |
+| `notice` | 提示 | `notice` | — |
+| `other` | 其它信息性 | `job`、`goal`、`subagent`、`tool-failure`、压缩 / 取消 / 中断 | — |
+
 | 预设 | 开启的组 |
 |---|---|
-| `quiet` | needs-you（审批/提问）+ notice（提示） |
-| `standard` | quiet + done/error/blocked/max-tokens |
-| `verbose` | 全部（含 job / goal / subagent / tool-failure / 压缩 / 取消 / 中断） |
+| `quiet` | `needs-you` + `notice` |
+| `standard` | `quiet` + `done-error` |
+| `verbose` | 全部四组 |
 
-用户逐项覆盖后整体标记 `custom`。开关粒度 = 组（`needs-you` 拆分为审批/提问两个子项）。
+用户逐组覆盖后整体标记 `custom`；把值改回与某预设完全一致时，重新显示为该预设。
+
+> `kind:"test"` 是设置页「发送测试通知」的内部验证用类别，不归属任何组、不受开关控制、
+> 不计入历史统计（避免污染 SC-003 的计数）。
 
 ## 存储位置与生命周期
 

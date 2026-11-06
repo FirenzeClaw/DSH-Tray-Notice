@@ -106,7 +106,8 @@ plugin/                    # [新增] DSH 插件（TypeScript）
 ├── src/
 │   ├── index.ts           # host 半入口：订阅、策略、spool 写入
 │   ├── config.ts          # schema 与默认值（schemastery）
-│   ├── events.ts          # DSH 事件 → 通知意图（分类/去重/挂起/截断）
+│   ├── events.ts          # DSH 事件 → 通知意图（分类/去重/截断）
+│   ├── defer.ts           # 挂起完成：父会话结束而子会话仍在跑时的等待与超时
 │   ├── notices.ts         # source.form==='notice' 的识别与映射
 │   ├── sessionstate.ts    # 会话状态快照维护
 │   ├── spool.ts           # NDJSON 追加 + 轮转
@@ -183,11 +184,11 @@ libnotify 误判坑（research D3）。V4 是 UI 大头，放中间而不放最�
 
 | 需求 | 切片 | 落点 |
 |---|---|---|
-| FR-001 事件采集 | V1 | `plugin/src/index.ts` 订阅清单 |
+| FR-001 事件采集 | V1 | `plugin/src/index.ts` 订阅清单（含 `job/settled`、`goal/changed`） |
 | FR-002 四组分类 | V1 | `plugin/src/events.ts` 分类函数 |
 | FR-003 轮次六分类 | V1 | `events.ts` 的 `TurnEndReason` → `kind` 映射 |
 | FR-004 子会话默认静默 | V1 | `events.ts` 判 `origin`；配置 `subagents` |
-| FR-005 挂起完成 | V1 | `events.ts` 挂起表 + 2s/15min 常量 |
+| FR-005 挂起完成 | V1 | `plugin/src/defer.ts` 挂起表 + 2s 宽限 / 15min 上限 |
 | FR-006 去重 | V1 + V2 | 插件生成 `dedupeKey`；托盘 10s 窗口二次去重 |
 | FR-007 三预设 | V1 + V6 | `config.ts` 默认值；设置页展示 |
 | FR-008 逐项覆盖 + 自定义标记 | V6 | `client/index.ts` 的 custom 判定 |

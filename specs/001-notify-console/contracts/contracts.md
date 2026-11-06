@@ -8,7 +8,7 @@ data-model.md 的协议版本，并在 CHANGELOG 记录。
 ## C1. Spool 协议（插件 → 托盘）
 
 - **传输**: `$DSH_HOME/run/tray-notify/events.jsonl`，NDJSON，UTF-8，单行 ≤ 64 KiB
-  （超长的字段在写侧截断，不让半行进流）。
+  （超长时**截断 `body` 字段**并加省略号，保证整行仍是合法 JSON；不得截断整行）。
 - **写入**: 追加模式；每行一条 JSON 对象；写后不 fsync（事件可容忍极端情况丢一条，
   不值得为此拖慢 DSH 的事件循环）。
 - **轮转**: 写前检查文件大小 > 1 MiB → 改名 `events.jsonl.1`（保留上一代）→ 新建。
@@ -60,8 +60,21 @@ data-model.md 的协议版本，并在 CHANGELOG 记录。
 `?session=<id>` 形态的裸链接**，托盘投递前按 owned/adopted 注入 `&token=…`。
 这保证令牌始终只存在于一侧。
 
-**设置**: ns=`tray-notify`，schema（schemastery）含 `preset`、`groups{…}`、
-`subagents`、`deferWhileChildrenRun`、`bodyLimit`。变更即时生效（插件监听设置事件重读）。
+**设置**: ns=`tray-notify`，schema（schemastery）：
+
+```
+preset: 'quiet' | 'standard' | 'verbose' | 'custom'   // 持久化值；界面映射 安静/标准/详细/自定义
+groups:
+  needs-you: { approval: boolean, answer: boolean }   // 组内两子项
+  done-error: boolean
+  notice: boolean
+  other: boolean
+subagents: boolean            // 子会话轮次结束是否通知（默认 false）
+deferWhileChildrenRun: boolean // 父会话结束时等子会话（默认 true）
+bodyLimit: number             // 正文截断长度（默认 200）
+```
+
+变更即时生效（插件监听设置事件重读）。
 
 ## C3. 平台后端接口（托盘侧）
 
