@@ -116,18 +116,26 @@ export interface SettingsBinding {
  * @param ctx - 插件上下文，用它的 `on` 订阅宿主事件
  * @param settings - 设置服务；undefined 时只返回默认策略且不订阅
  * @param logger - 日志器
+ * @param onTestRequested - 设置页点了「发送测试通知」时回调（`testNonce` 变大）
  * @returns 绑定句柄
  */
 export function bindSettings(
   ctx: Pick<Context, 'on'>,
   settings: SettingsReader | undefined,
   logger: Logger,
+  onTestRequested?: () => void,
 ): SettingsBinding {
   let policy = createPolicy(readConfig(settings, logger))
+  let lastTestNonce = policy.config.testNonce
 
   const reload = (): void => {
     policy = createPolicy(readConfig(settings, logger))
     logger.debug(`策略已更新：preset=${policy.config.preset}`)
+    // 测试通知绕过组开关：它的用途正是「先确认链路通不通，再决定开哪些开关」。
+    if (policy.config.testNonce > lastTestNonce) {
+      lastTestNonce = policy.config.testNonce
+      onTestRequested?.()
+    }
   }
 
   // 只在事件属于本命名空间时重读：宿主会把任何条目的变更都广播出来，全量重读

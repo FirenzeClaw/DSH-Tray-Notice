@@ -144,6 +144,38 @@ describe('热更新', () => {
     assert.equal(binding.current().config.preset, 'quiet')
   })
 
+  it('testNonce 变大时触发测试通知回调', () => {
+    const logger = fakeLogger()
+    const settings = fakeSettings({ preset: 'standard', testNonce: 0 })
+    const ctx = fakeContext()
+    let requested = 0
+    bindSettings(ctx, settings, logger, () => {
+      requested += 1
+    })
+
+    settings.state.value = { preset: 'standard', testNonce: 1 }
+    ctx.emit(SETTINGS_NAMESPACE)
+    assert.equal(requested, 1)
+
+    settings.state.value = { preset: 'standard', testNonce: 2 }
+    ctx.emit(SETTINGS_NAMESPACE)
+    assert.equal(requested, 2)
+  })
+
+  it('testNonce 不变时不触发测试通知', () => {
+    const logger = fakeLogger()
+    const settings = fakeSettings({ preset: 'standard', testNonce: 5 })
+    const ctx = fakeContext()
+    let requested = 0
+    bindSettings(ctx, settings, logger, () => {
+      requested += 1
+    })
+
+    settings.state.value = { preset: 'quiet', testNonce: 5 }
+    ctx.emit(SETTINGS_NAMESPACE)
+    assert.equal(requested, 0, '只改预设不该发测试通知')
+  })
+
   it('变更后读失败时退回标准预设而不是保留旧值', () => {
     const logger = fakeLogger()
     const settings = fakeSettings({ preset: 'verbose' })

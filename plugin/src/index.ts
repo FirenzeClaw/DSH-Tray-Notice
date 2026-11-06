@@ -112,7 +112,12 @@ export function wire(
   spool: SpoolWriter,
   now: () => Date = () => new Date(),
 ): Wiring {
-  const settingsBinding = bindSettings(host as unknown as Pick<Context, 'on'>, host.settings, logger)
+  const settingsBinding = bindSettings(
+    host as unknown as Pick<Context, 'on'>,
+    host.settings,
+    logger,
+    () => emitTestNotification(),
+  )
   const tracker = createSessionTracker((state) => spool.append(state), () => now().getTime())
   const deferrer = createDeferrer(() => now().getTime(), (message) => logger.info(message))
   const disposers: (() => boolean)[] = []
@@ -121,6 +126,27 @@ export function wire(
   const seen = new Map<string, Session>()
   /** 父会话 id → 仍在跑的根子会话 id 集合。 */
   const liveChildren = new Map<string, Set<string>>()
+
+  /**
+   * 写一条测试通知。
+   *
+   * 绕过组开关（`policy.wants('test')` 恒为 true），也不进未读统计——它的用途是
+   * 让用户确认「链路通不通」，不是一条真事件。
+   */
+  const emitTestNotification = (): void => {
+    const session = [...seen.values()][0]
+    const view = session === undefined ? { id: 'test', title: '测试通知' } : sessionView(session, host.sessionTitle)
+    emit({
+      kind: 'test',
+      sessionId: view.id,
+      sessionTitle: view.title,
+      title: '测试通知',
+      body: '看到这条说明通知链路是通的',
+      urgency: 'normal',
+      openUrl: '',
+      dedupeKey: `test:${Date.now()}`,
+    })
+  }
 
   /** 统一的「写一条通知」路径：补 id 与时间戳。 */
   const emit = (intent: NotificationIntent | undefined): void => {

@@ -42,6 +42,13 @@ export interface TrayNotifyConfig {
   readonly deferWhileChildrenRun: boolean
   /** 正文截断长度；默认 200。 */
   readonly bodyLimit: number
+  /**
+   * 设置页「发送测试通知」的触发标记。
+   *
+   * 为什么用计数器而不是布尔：布尔改成 true 后必须改回 false 才能再触发一次，
+   * 而设置页写完就忘；计数器每次 +1，插件据此判断「用户又点了一次」。
+   */
+  readonly testNonce: number
 }
 
 /** 全关。 */
@@ -80,6 +87,7 @@ export const DEFAULT_CONFIG: TrayNotifyConfig = {
   subagents: false,
   deferWhileChildrenRun: true,
   bodyLimit: 200,
+  testNonce: 0,
 }
 
 /** 组级覆盖：允许只给一个组、或只给 needs-you 的一个子项。 */
@@ -192,6 +200,10 @@ export function normalizeConfig(raw: unknown): TrayNotifyConfig {
       typeof source.bodyLimit === 'number' && Number.isFinite(source.bodyLimit) && source.bodyLimit > 0
         ? Math.floor(source.bodyLimit)
         : DEFAULT_CONFIG.bodyLimit,
+    testNonce:
+      typeof source.testNonce === 'number' && Number.isFinite(source.testNonce) && source.testNonce >= 0
+        ? Math.floor(source.testNonce)
+        : DEFAULT_CONFIG.testNonce,
   }
 }
 
