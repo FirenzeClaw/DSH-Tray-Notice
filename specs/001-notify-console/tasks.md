@@ -31,40 +31,40 @@ description: "Task list for 托盘通知控制台"
 
 **Purpose**: 两个语言侧的包骨架与测试入口
 
-- [ ] T001 创建插件包骨架 `plugin/package.json`
-  - [ ] 含 `name: "dsh-tray-notify"`、`type: "module"`、`engines.node >=22`
-  - [ ] `dsh` 字段三件齐全：`manifestVersion: 1`、`bundle: { patch: "dsh.bundle.patch" }`、**`client: { platform: "web" }`**
-  - [ ] `exports` 含 `"."`（→ `./dist/index.js`）与 **`"./client"`（→ `./dist/client.js`）**
-  - [ ] `peerDependencies` 列出 cordis ~4.0.5 与用到的 dsh-* 0.2.1-rc.5
-  - [ ] `scripts`：`build`（`tsc -p tsconfig.json && tsc -p tsconfig.client.json && node scripts/build-client.mjs`）、`test`（`node --test plugin/tests/`）、`typecheck`
-  - [ ] `npm --prefix plugin install` 成功；`npm --prefix plugin run typecheck` 在空实现下通过
+- [x] T001 创建插件包骨架 `plugin/package.json`
+  - [x] 含 `name: "dsh-tray-notify"`、`type: "module"`、`engines.node >=22`
+  - [x] `dsh` 字段三件齐全：`manifestVersion: 1`、`bundle: { patch: "dsh.bundle.patch" }`、**`client: { platform: "web" }`**
+  - [x] `exports` 含 `"."`（→ `./dist/index.js`）与 **`"./client"`（→ `./dist/client.js`）**
+  - [x] `peerDependencies` 列出 cordis ~4.0.5 与用到的 dsh-* 0.2.1-rc.5
+  - [x] `scripts`：`build`（`tsc -p tsconfig.json && tsc -p tsconfig.client.json && node scripts/build-client.mjs`）、`test`（`node --test plugin/tests/`）、`typecheck`
+  - [x] `npm --prefix plugin install` 成功；`npm --prefix plugin run typecheck` 在空实现下通过
 
-- [ ] T002 [P] 配置 TS 编译 `plugin/tsconfig.json` 与 `plugin/tsconfig.client.json`
-  - [ ] 均 `module/moduleResolution: NodeNext`、`strict: true`、`outDir: dist`（client 为 `dist/client`）
-  - [ ] 客户端配置 `lib: ["DOM","ES2022"]`、`jsx: "react-jsx"`、`types` 不含 node
-  - [ ] `npx tsc -p plugin/tsconfig.json --noEmit` 无错误
+- [x] T002 [P] 配置 TS 编译 `plugin/tsconfig.json` 与 `plugin/tsconfig.client.json`
+  - [x] 均 `module/moduleResolution: NodeNext`、`strict: true`、`outDir: dist`（client 为 `dist/client`）
+  - [x] 客户端配置 `lib: ["DOM","ES2022"]`、`jsx: "react-jsx"`、`types` 不含 node
+  - [x] `npx tsc -p plugin/tsconfig.json --noEmit` 无错误
 
-- [ ] T003 [P] 编写 bundle 补丁 `plugin/dsh.bundle.patch`
-  - [ ] 顶层 YAML 数组，仅 `insert`，条目 `id: tray-notify`、`name: dsh-tray-notify`
-  - [ ] 不改动宿主既有条目（不得出现 `disable` 或其他 id 的覆盖）
-  - [ ] `dsh plugin --profile web add "link:$PWD/plugin"` 后 `~/.dsh/profiles/web/cordis.patch.yml` 出现该条目
+- [x] T003 [P] 编写 bundle 补丁 `plugin/dsh.bundle.patch`
+  - [x] 顶层 YAML 数组，仅 `insert`，条目 `id: tray-notify`、`name: dsh-tray-notify`
+  - [x] 不改动宿主既有条目（不得出现 `disable` 或其他 id 的覆盖）
+  - [x] `dsh plugin --profile web add "link:$PWD/plugin"` 后 `~/.dsh/profiles/web/package.json` 的 `dsh.profile.bundles` 出现 `dsh-tray-notify`；`dsh --profile web --dump-config` 输出含 `id: tray-notify`（实测：bundle 层由插件自带 patch 提供，不写入 cordis.patch.yml）
 
-- [ ] T004 [P] 创建托盘通知域包 `dsh_tray/notify/__init__.py`
-  - [ ] 只导出模块级常量与类型，不 import Qt
-  - [ ] `python3 -c "import dsh_tray.notify"` 在无 DISPLAY 环境成功
+- [x] T004 [P] 创建托盘通知域包 `dsh_tray/notify/__init__.py`
+  - [x] 只导出模块级常量与类型，不 import Qt
+  - [x] `python3 -c "import dsh_tray.notify"` 在无 DISPLAY 环境成功
 
-- [ ] T005 [P] 创建面板包 `dsh_tray/ui/__init__.py`
-  - [ ] 延迟 import PyQt6（模块导入本身不触发 Qt 加载）
-  - [ ] 无 DISPLAY 下 `import dsh_tray.ui` 不报错
+- [x] T005 [P] 创建面板包 `dsh_tray/ui/__init__.py`
+  - [x] 延迟 import PyQt6（模块导入本身不触发 Qt 加载）
+  - [x] 无 DISPLAY 下 `import dsh_tray.ui` 不报错
 
-- [ ] T006 [P] 创建平台层骨架 `dsh_tray/platform/__init__.py` 与 `dsh_tray/platform/base.py`
-  - [ ] `base.py` 定义 `NotificationBackend`、`WindowAnchor`、`ProcessSampler` 三个 `Protocol`（签名见 contracts C3）
-  - [ ] `__init__.py` 按 `sys.platform` 分派；Windows 未实现时抛 `NotImplementedError("多平台规格交付")`
-  - [ ] `python3 -c "import dsh_tray.platform"` 通过
+- [x] T006 [P] 创建平台层骨架 `dsh_tray/platform/__init__.py` 与 `dsh_tray/platform/base.py`
+  - [x] `base.py` 定义 `NotificationBackend`、`WindowAnchor`、`ProcessSampler` 三个 `Protocol`（签名见 contracts C3）
+  - [x] `__init__.py` 按 `sys.platform` 分派；Windows 未实现时抛 `NotImplementedError("多平台规格交付")`
+  - [x] `python3 -c "import dsh_tray.platform"` 通过
 
-- [ ] T007 建立 Python 测试入口 `dsh_tray/tests/__init__.py` 与 `dsh_tray/tests/test_smoke.py`
-  - [ ] `test_smoke.py` 断言 `DEFAULT_PORT == 3080` 与 `dsh_tray.notify` 可导入
-  - [ ] `python3 -m unittest discover -s dsh_tray/tests -t .` 输出 `OK`
+- [x] T007 建立 Python 测试入口 `dsh_tray/tests/__init__.py` 与 `dsh_tray/tests/test_smoke.py`
+  - [x] `test_smoke.py` 断言 `DEFAULT_PORT == 3080` 与 `dsh_tray.notify` 可导入
+  - [x] `python3 -m unittest discover -s dsh_tray/tests -t .` 输出 `OK`
 
 ---
 
