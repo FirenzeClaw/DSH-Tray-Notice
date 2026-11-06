@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DSH-Tray
+Comment=DSH-Tray：DeepSeek-Harness 托盘启动器
+Exec=/home/firenzeclaw/Code/DSH/scripts/dsh-tray.sh
+Icon=/home/firenzeclaw/Code/DSH/icons/dsh-tray.svg
+Terminal=false
+Categories=Development;
+StartupNotify=false
+X-KDE-StartupNotify=false
