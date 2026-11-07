@@ -10,11 +10,14 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  CRITICAL_TIMEOUT_MAX_MS,
+  CRITICAL_TIMEOUT_MIN_MS,
   DEFAULT_CONFIG,
   PRESET_GROUPS,
   detectPreset,
   isGroupEnabled,
   normalizeConfig,
+  normalizeCriticalTimeout,
   presetGroups,
   resolveGroups,
   type GroupName,
@@ -133,5 +136,33 @@ describe('配置规范化', () => {
     const config = normalizeConfig({ subagents: 'yes', deferWhileChildrenRun: 1 })
     assert.equal(config.subagents, DEFAULT_CONFIG.subagents)
     assert.equal(config.deferWhileChildrenRun, DEFAULT_CONFIG.deferWhileChildrenRun)
+  })
+})
+
+
+describe('critical 横幅时限', () => {
+  it('默认 5 分钟', () => {
+    assert.equal(DEFAULT_CONFIG.criticalTimeoutMs, 300_000)
+    assert.equal(normalizeCriticalTimeout(undefined), 300_000)
+  })
+
+  it('越界钳到边界而不是退回默认', () => {
+    assert.equal(normalizeCriticalTimeout(100), CRITICAL_TIMEOUT_MIN_MS)
+    assert.equal(normalizeCriticalTimeout(99_999_999), CRITICAL_TIMEOUT_MAX_MS)
+  })
+
+  it('非法值退回默认', () => {
+    for (const bad of ['60000', null, Number.NaN, Number.POSITIVE_INFINITY]) {
+      assert.equal(normalizeCriticalTimeout(bad), 300_000, String(bad))
+    }
+  })
+
+  it('区间内的值原样保留', () => {
+    assert.equal(normalizeCriticalTimeout(600_000), 600_000)
+  })
+
+  it('normalizeConfig 会带上它', () => {
+    assert.equal(normalizeConfig({ criticalTimeoutMs: 60_000 }).criticalTimeoutMs, 60_000)
+    assert.equal(normalizeConfig({}).criticalTimeoutMs, 300_000)
   })
 })

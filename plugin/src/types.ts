@@ -69,6 +69,16 @@ export interface NotificationEntry {
   readonly openUrl: string
   /** 去重键；托盘对同键且 10 秒内的第二条直接丢弃。 */
   readonly dedupeKey: string
+  /**
+   * 横幅停留毫秒数；缺省时托盘按紧急度用内置默认值。
+   *
+   * 由插件下发而不是托盘自己定：这个值在设置页可调（`criticalTimeoutMs`），而设置
+   * 只对插件可见——托盘不读 DSH 设置文件（AGENTS.md：插件是唯一策略点）。
+   *
+   * 为什么 critical 也必须有限：实测「永不过期」的横幅会**占住 Plasma 的通知弹窗位**，
+   * 用户不点掉它，后续所有通知都排队不显示——看起来就像通知功能坏了。
+   */
+  readonly timeoutMs?: number
 }
 
 /** 会话运行态。 */

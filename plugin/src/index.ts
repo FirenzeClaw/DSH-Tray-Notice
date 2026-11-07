@@ -37,6 +37,7 @@ import {
   intentFromQuestion,
   intentFromTurnEnd,
   openUrlFor,
+  timeoutFor,
   toEntry,
   type NotificationIntent,
   type QuestionPayload,
@@ -153,7 +154,8 @@ export function wire(
   /** 统一的「写一条通知」路径：补 id 与时间戳。 */
   const emit = (intent: NotificationIntent | undefined): void => {
     if (intent === undefined) return
-    spool.append(toEntry(intent, randomUUID(), now()))
+    const timeoutMs = timeoutFor(intent.urgency, settingsBinding.current().config.criticalTimeoutMs)
+    spool.append(toEntry(intent, randomUUID(), now(), timeoutMs))
     logger.debug(`写入通知 ${intent.kind} ${intent.sessionId}`)
   }
 

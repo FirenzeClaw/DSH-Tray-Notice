@@ -12,7 +12,7 @@ import { describe, it } from 'node:test'
 import { PRESET_GROUPS } from '../src/config.ts'
 import { createPolicy } from '../src/settings.ts'
 import type { TrayNotifyConfig } from '../src/config.ts'
-import { intentFromTurnEnd, intentFromApproval, intentFromQuestion } from '../src/events.ts'
+import { intentFromTurnEnd, intentFromApproval, intentFromQuestion, timeoutFor, toEntry } from '../src/events.ts'
 
 /** 造一个策略：verbose 全开，方便观察分类而不被开关挡住。 */
 function verbosePolicy(bodyLimit = 200) {
@@ -175,5 +175,46 @@ describe('user-questions/request → 意图', () => {
       intentFromQuestion(createPolicy(config), SESSION, { questions: [{ question: 'x' }] }),
       undefined,
     )
+  })
+})
+
+
+describe('横幅停留时间随条目下发', () => {
+  it('critical 用设置里的值', () => {
+    assert.equal(timeoutFor('critical', 600_000), 600_000)
+  })
+
+  it('normal 固定 5 秒', () => {
+    assert.equal(timeoutFor('normal', 600_000), 5000)
+  })
+
+  it('toEntry 带上 timeoutMs', () => {
+    const intent = {
+      kind: 'done' as const,
+      sessionId: 's-1',
+      sessionTitle: 't',
+      title: 'a',
+      body: 'b',
+      urgency: 'critical' as const,
+      openUrl: 'u',
+      dedupeKey: 'd',
+    }
+    const row = toEntry(intent, 'id-1', new Date('2026-11-07T00:00:00Z'), 120_000)
+    assert.equal(row.timeoutMs, 120_000)
+  })
+
+  it('不传时字段缺省（旧托盘按紧急度兜底）', () => {
+    const intent = {
+      kind: 'done' as const,
+      sessionId: 's-1',
+      sessionTitle: 't',
+      title: 'a',
+      body: 'b',
+      urgency: 'normal' as const,
+      openUrl: 'u',
+      dedupeKey: 'd',
+    }
+    const row = toEntry(intent, 'id-2', new Date('2026-11-07T00:00:00Z'))
+    assert.equal('timeoutMs' in row, false)
   })
 })

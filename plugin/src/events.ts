@@ -277,7 +277,25 @@ function goalOperationText(operation: string): string {
  * @param now - 当前时刻
  * @returns 契约条目
  */
-export function toEntry(intent: NotificationIntent, id: string, now: Date): NotificationEntry {
+/** normal 通知的横幅停留毫秒数（固定 5 秒，不进设置）。 */
+export const DEFAULT_NORMAL_TIMEOUT_MS = 5000
+
+/**
+ * 按紧急度决定横幅停留时间。
+ * @param urgency - 紧急度
+ * @param criticalTimeoutMs - critical 的时限，来自设置
+ * @returns 毫秒数
+ */
+export function timeoutFor(urgency: Urgency, criticalTimeoutMs: number): number {
+  return urgency === 'critical' ? criticalTimeoutMs : DEFAULT_NORMAL_TIMEOUT_MS
+}
+
+export function toEntry(
+  intent: NotificationIntent,
+  id: string,
+  now: Date,
+  timeoutMs?: number,
+): NotificationEntry {
   return {
     v: 1,
     type: 'notification',
@@ -292,5 +310,6 @@ export function toEntry(intent: NotificationIntent, id: string, now: Date): Noti
     urgency: intent.urgency,
     openUrl: intent.openUrl,
     dedupeKey: intent.dedupeKey,
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
   }
 }

@@ -27,6 +27,7 @@ from ..platform.linux import LinuxWindowAnchor
 from .panel import PANEL_WIDTH, TAB_OVERVIEW, TAB_READ, TAB_UNREAD, TAB_WORKING, Panel
 from .working import WorkingPage
 from ..notify.consumer import Consumer
+from ..notify.delivery import DeliveryResult, PopupRegistry, deliver
 from ..notify.log import Logger, default_log_path
 from ..platform.linux import LinuxActionListener
 
@@ -122,7 +123,10 @@ class TrayApp:
         # 通知管线：消费 spool、投递系统通知、写历史。
         # 与状态轮询分开计时——通知要快（200 ms），状态探测 2 s 足够。
         self._logger = Logger(default_log_path(), "tray")
-        self._consumer = Consumer(logger=self._logger)
+        #: 会话 → 该会话最近一条弹窗的 id：同会话的新通知顶替旧横幅而不是排队。
+        #: 排队会让用户看到一串过期的「需要你审批」，最旧那条还一直占着弹窗位。
+        self._popups = PopupRegistry()
+        self._consumer = Consumer(logger=self._logger, deliverer=self._deliver)
         self._notify_unavailable = False
         self._missed_total = 0
         #: 桌面通知 id → 会话 id；点击回执只有通知 id，要据此反查会话。
@@ -322,6 +326,18 @@ class TrayApp:
         webbrowser.open(build(session_id, instance, record))
 
     # ------------------------------------------------------------------ 通知
+
+    def _deliver(self, entry: dict[str, object]) -> DeliveryResult:
+        """投递一条通知，并登记弹窗 id 供同会话后续顶替。
+
+        @param entry - spool 条目的 dict 形态
+        @returns 投递结果
+        """
+        session_id = str(entry.get("sessionId", ""))
+        result = deliver(entry, replaces_id=self._popups.get(session_id))
+        if result.delivered and result.notification_id is not None:
+            self._popups.remember(session_id, result.notification_id)
+        return result
 
     def _on_notify_tick(self) -> None:
         """一轮通知消费：读 spool、投递、入库，并按 DSH 状态调整间隔。

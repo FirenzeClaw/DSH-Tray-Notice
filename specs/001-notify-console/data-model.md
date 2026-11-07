@@ -26,6 +26,7 @@
 | `urgency` | str | ✓ | `critical`（需要你）/ `normal`（其余） |
 | `openUrl` | str | ✓ | 会话定位链接，**不含令牌**（`http://127.0.0.1:3080/?session=<id>`）。令牌由托盘在投递/打开时按 owned/adopted 注入——令牌只能存在于托盘一侧（contracts C2） |
 | `dedupeKey` | str | ✓ | 去重键，规则见下 |
+| `timeoutMs` | int | — | 横幅停留毫秒数；缺省时投递端按紧急度兜底 |
 
 **去重键规则**: `kind:sessionId:turn`（轮次类）；`approval:<approvalId>`；`question:<requestId>`；
 `job:<jobId>`。托盘对同键且 10 秒内的第二条直接丢弃。
@@ -83,6 +84,13 @@
 | `done-error` | 完成与出错 | `done`、`error`、`blocked`、`max-tokens` | — |
 | `notice` | 提示 | `notice` | — |
 | `other` | 其它信息性 | `job`、`goal`、`subagent`、`tool-failure`、`cancelled`、`interrupted` | — |
+
+设置里还有一个不属于四组的项：
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `criticalTimeoutMs` | 300000（5 分钟） | critical 通知的横幅停留时限；范围钳到 5 秒 ~ 1 小时。**刻意不提供「永不消失」**——实测那样会占住 Plasma 的弹窗位，后续通知全部排队不显示 |
+| `testNonce` | 0 | 设置页「发送测试通知」的触发计数 |
 
 | 预设 | 开启的组 |
 |---|---|

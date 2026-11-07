@@ -194,6 +194,25 @@ export function groupsOf(raw: unknown): Groups {
 }
 
 /**
+ * 从设置值里取 critical 横幅时限（毫秒）。
+ *
+ * 服务端会规范化（钳到 5 秒 ~ 1 小时），这里只做界面兜底：拿到的可能是旧版本文档。
+ * @param raw - 设置值
+ * @returns 毫秒数
+ */
+export function criticalTimeoutOf(raw: unknown): number {
+  const value = typeof raw === 'object' && raw !== null ? (raw as { criticalTimeoutMs?: unknown }) : {}
+  const ms = value.criticalTimeoutMs
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return DEFAULT_CRITICAL_TIMEOUT_MS
+  return Math.min(CRITICAL_TIMEOUT_MAX_MS, Math.max(CRITICAL_TIMEOUT_MIN_MS, Math.floor(ms)))
+}
+
+/** 与服务端 `config.ts` 保持一致的下限、上限与默认值。 */
+export const CRITICAL_TIMEOUT_MIN_MS = 5_000
+export const CRITICAL_TIMEOUT_MAX_MS = 3_600_000
+export const DEFAULT_CRITICAL_TIMEOUT_MS = 300_000
+
+/**
  * 判断当前开关与哪个预设一致。
  * @param groups - 开关
  * @returns 预设名；都不匹配时 `custom`
@@ -270,6 +289,14 @@ function TrayNotifySection(): ReactElement {
 
   const groups = useMemo(() => groupsOf(value), [value])
   const preset = useMemo(() => presetOf(groups), [groups])
+  const criticalTimeoutMs = useMemo(() => criticalTimeoutOf(value), [value])
+  /**
+   * 输入框里的草稿（秒）。
+   *
+   * 独立于 value 保存：用户正在输入时 `1`、`12`、`120` 都是中间态，若每次都写回
+   * 服务端，会连着提交三个值并互相踩 revision。只在回车/失焦时提交一次。
+   */
+  const [criticalSecondsDraft, setCriticalSecondsDraft] = useState<string | undefined>(undefined)
 
   const load = useCallback(async () => {
     if (settings === undefined) return
@@ -353,6 +380,17 @@ function TrayNotifySection(): ReactElement {
     },
     [groups, write],
   )
+
+  /** 把输入框的草稿提交上去；非法或没改就丢弃草稿、回到服务端的值。 */
+  const commitCriticalTimeout = useCallback(() => {
+    if (criticalSecondsDraft === undefined) return
+    const seconds = Number(criticalSecondsDraft.trim())
+    setCriticalSecondsDraft(undefined)
+    if (!Number.isFinite(seconds)) return
+    const ms = Math.round(seconds * 1000)
+    if (ms === criticalTimeoutMs) return
+    void write({ criticalTimeoutMs: ms })
+  }, [criticalSecondsDraft, criticalTimeoutMs, write])
 
   const sendTest = useCallback(() => {
     // 计数器 +1：布尔改成 true 后必须改回才能再触发，而设置页写完就忘。
@@ -470,6 +508,45 @@ function TrayNotifySection(): ReactElement {
               row.key,
             ),
       ),
+      jsxs('div', {
+        style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0' },
+        children: [
+          jsxs('div', {
+            style: { flex: '1', minWidth: '0' },
+            children: [
+              jsx('div', { style: { fontSize: '14px' }, children: '审批通知停留时间' }),
+              jsx('div', {
+                style: { fontSize: '12px', opacity: 0.65, marginTop: '2px' },
+                children: '需要你处理的通知在屏幕上停留多久（秒）。不设「永不消失」——实测那样会占住弹窗位，后续通知全被挡住。',
+              }),
+            ],
+          }),
+          jsx('input', {
+            type: 'number',
+            min: CRITICAL_TIMEOUT_MIN_MS / 1000,
+            max: CRITICAL_TIMEOUT_MAX_MS / 1000,
+            step: 30,
+            disabled,
+            // 草稿优先：编辑期间不能被服务端回写顶掉，否则用户打不完整。
+            value: criticalSecondsDraft ?? String(Math.round(criticalTimeoutMs / 1000)),
+            onChange: (event: { target: { value: string } }) => setCriticalSecondsDraft(event.target.value),
+            onBlur: commitCriticalTimeout,
+            onKeyDown: (event: { key: string }) => {
+              if (event.key === 'Enter') commitCriticalTimeout()
+            },
+            style: {
+              width: '90px',
+              fontSize: '13px',
+              padding: '5px 8px',
+              borderRadius: '6px',
+              border: '1px solid rgba(255,255,255,.14)',
+              background: 'transparent',
+              color: 'inherit',
+            },
+          }),
+          jsx('span', { style: { fontSize: '12px', opacity: 0.6 }, children: '秒' }),
+        ],
+      }),
       jsxs('div', {
         style: { display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '6px' },
         children: [

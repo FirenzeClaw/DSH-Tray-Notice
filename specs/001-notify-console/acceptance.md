@@ -100,6 +100,35 @@ DSH 0.2.1-rc.5；Node 24.22.1
 3. SC-005 的真实桌面首帧耗时。
 4. SC-007 的设置页人工操作（需重启 DSH 装载客户端产物）。
 
+## 走查发现的缺陷与修正（2026-11-07）
+
+在真实桌面上走查时发现一个**只有实测才会暴露**的缺陷，已修复：
+
+**症状**：21:16 发的一条 critical 通知在屏幕上停留 1 小时 40 分钟不消失；期间发出的
+所有通知（含换 app 名、去掉 actions/hints、改各种 timeout）**一条横幅都没渲染**，
+但 D-Bus 调用全部成功并返回了 id（164–172）。关掉那条旧通知后，横幅立刻恢复正常。
+
+**根因**：`TIMEOUT_CRITICAL_MS = 0`。按 freedesktop 规范 0 =「由服务端决定」，而 Plasma
+对 critical 的处理是**保留到用户手动关闭**。一条没人关的 critical 通知会占住弹窗位，
+后续通知排队但不显示——看起来完全像通知功能坏了。这与 FR-013「需要你的通知驻留」的
+**字面**一致，但和它想要的**效果**相反。
+
+**修正（用户批准的 C+B 方案）**：
+
+| 改动 | 内容 | 位置 |
+|---|---|---|
+| C 顶替 | 同一会话的新通知带 `replaces_id` 顶替旧横幅，不再排队 | `delivery.PopupRegistry` + `tray._deliver` |
+| B 有限时限 | critical 兜底从 0 改为 5 分钟 | `delivery.TIMEOUT_CRITICAL_MS` |
+| 可配置 | `criticalTimeoutMs` 进设置页（5 秒 ~ 1 小时，数字输入，回车/失焦提交） | `config.ts` / `client/index.ts` |
+| 契约 | 通知条目新增可选 `timeoutMs`，由插件按设置下发 | `types.ts` / `types.py` |
+
+**顺带修掉的测试缺陷**：`test_read_page_groups_by_day` 依赖真实时钟，11-06 写的用例在
+11-07 早上把「今天」算成了「昨天」。已给 `NotificationListPage.refresh()` 加可注入的
+`now`，用例传冻结时刻。
+
+**仍未验证**：修正后的横幅行为需要在真实桌面上复看一次（写这份记录时 Plasma 侧
+已不再渲染任何弹窗，疑为通知弹窗被关闭或勿扰，非本仓库可控）。
+
 ## 已知限制
 
 - **Windows 未实现**：`dsh_tray/platform/__init__.py` 对非 Linux 平台抛

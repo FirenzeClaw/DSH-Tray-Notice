@@ -73,6 +73,18 @@ def _optional_text(raw: Any) -> str | None:
     return raw if isinstance(raw, str) else None
 
 
+def _optional_int(raw: Any) -> int | None:
+    """取可选正整数；缺失、类型不对或非正数都返回 None（不视为错误）。
+
+    非正数按「没给」处理而不是报错：远端插件可能用 0 表示「没意见」，为它丢掉整条
+    通知不值得。
+    """
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return None
+    value = int(raw)
+    return value if value > 0 else None
+
+
 class _BadRow(Exception):
     """必填字段缺失或类型不对。
 
@@ -111,6 +123,20 @@ class NotificationEntry:
     open_url: str
     dedupe_key: str
     workspace: str | None = None
+    #: 横幅停留毫秒数；缺省时投递端按紧急度用内置默认值。
+    #: 由插件下发（设置页可调），托盘不读 DSH 设置文件。
+    timeout_ms: int | None = None
+
+    def banner_timeout_ms(self, critical_ms: int, normal_ms: int) -> int:
+        """本次横幅该停留多久。
+
+        @param critical_ms - critical 的兜底时限（插件没下发时用）
+        @param normal_ms - normal 的兜底时限
+        @returns 毫秒数；条目自带 `timeout_ms` 时优先用它
+        """
+        if self.timeout_ms is not None and self.timeout_ms > 0:
+            return self.timeout_ms
+        return critical_ms if self.is_critical else normal_ms
 
     @property
     def is_critical(self) -> bool:
@@ -145,6 +171,7 @@ class NotificationEntry:
                 open_url=_need(raw, "openUrl"),
                 dedupe_key=_need(raw, "dedupeKey"),
                 workspace=_optional_text(raw.get("workspace")),
+                timeout_ms=_optional_int(raw.get("timeoutMs")),
             )
         except _BadRow:
             return None

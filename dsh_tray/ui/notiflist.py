@@ -150,12 +150,19 @@ class NotificationListPage(QWidget):
         self._layout.setSpacing(0)
         self._scroll.setWidget(self._container)
 
-    def refresh(self, items: list[history.StoredNotification] | None = None) -> None:
+    def refresh(
+        self,
+        items: list[history.StoredNotification] | None = None,
+        now: datetime | None = None,
+    ) -> None:
         """重建列表。
 
         已查看页按日期分组，未查看页不分组（未查看通常只有几条，分组反而是噪音）。
 
         @param items - 记录；缺省读历史
+        @param now - 用于判定「今天/昨天」的时刻；缺省取真实当前时间。
+            可注入是为了让分组可确定性测试——用真实时钟的测试会**跨天失败**
+            （实测：11-06 写的用例在 11-07 早上把「今天」算成了「昨天」）。
         """
         records = items if items is not None else history.load()
         selected = [item for item in records if item.read != self._only_unread]
@@ -178,7 +185,7 @@ class NotificationListPage(QWidget):
             for item in sorted(selected, key=lambda record: record.entry.ts, reverse=True):
                 self._add_row(item)
         else:
-            for label, group in history.group_by_day(selected):
+            for label, group in history.group_by_day(selected, now):
                 header = QLabel(label, self._container)
                 header.setObjectName("dayHeader")
                 self._layout.addWidget(header)

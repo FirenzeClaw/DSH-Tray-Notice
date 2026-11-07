@@ -20,6 +20,9 @@ data-model.md 的协议版本，并在 CHANGELOG 记录。
   单条日志汇总，不报错。
 - **kind 枚举**见 data-model.md；实现期补了 `cancelled` / `interrupted`（FR-003 六类）。
   托盘对未知 kind 按「其它」处理，不丢弃——插件可能先于托盘升级。
+- **可选 `timeoutMs`**（实现期新增）：横幅停留毫秒数。由插件按用户在设置页选的
+  `criticalTimeoutMs` 下发，托盘优先用它、缺省才按紧急度兜底。之所以不放在托盘侧配置：
+  设置只对插件可见（托盘不读 DSH 设置文件）。
 
 ### 行示例
 

@@ -43,6 +43,13 @@ export interface TrayNotifyConfig {
   /** 正文截断长度；默认 200。 */
   readonly bodyLimit: number
   /**
+   * critical 通知的横幅停留毫秒数；默认 5 分钟。
+   *
+   * 下限 5 秒：更短等于没提示；上限 1 小时——再长就回到「堵住弹窗位」的老问题。
+   * 刻意**不提供「永不消失」选项**：那是本项要修掉的缺陷，不是可选项。
+   */
+  readonly criticalTimeoutMs: number
+  /**
    * 设置页「发送测试通知」的触发标记。
    *
    * 为什么用计数器而不是布尔：布尔改成 true 后必须改回 false 才能再触发一次，
@@ -87,6 +94,7 @@ export const DEFAULT_CONFIG: TrayNotifyConfig = {
   subagents: false,
   deferWhileChildrenRun: true,
   bodyLimit: 200,
+  criticalTimeoutMs: 300_000,
   testNonce: 0,
 }
 
@@ -180,6 +188,24 @@ export function isGroupEnabled(groups: GroupSwitches, group: GroupName): boolean
  * @param raw - 任意输入
  * @returns 完整配置
  */
+/** 横幅停留时限的下限与上限（毫秒）。 */
+export const CRITICAL_TIMEOUT_MIN_MS = 5_000
+export const CRITICAL_TIMEOUT_MAX_MS = 3_600_000
+
+/**
+ * 规范化 critical 横幅停留时限。
+ *
+ * 越界时**钳到边界**而不是退回默认：用户在设置页把值调大调小都应该生效，只有
+ * 非数字（手写配置写错）才退回默认。钳制而不是拒绝，是因为退回默认会让「我明明
+ * 调了 10 分钟怎么变回 5 分钟」变成一个查不出来的怪现象。
+ * @param value - 原始值
+ * @returns 毫秒数
+ */
+export function normalizeCriticalTimeout(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_CONFIG.criticalTimeoutMs
+  return Math.min(CRITICAL_TIMEOUT_MAX_MS, Math.max(CRITICAL_TIMEOUT_MIN_MS, Math.floor(value)))
+}
+
 export function normalizeConfig(raw: unknown): TrayNotifyConfig {
   if (typeof raw !== 'object' || raw === null) return DEFAULT_CONFIG
   const source = raw as Partial<TrayNotifyConfig>
@@ -204,6 +230,7 @@ export function normalizeConfig(raw: unknown): TrayNotifyConfig {
       typeof source.testNonce === 'number' && Number.isFinite(source.testNonce) && source.testNonce >= 0
         ? Math.floor(source.testNonce)
         : DEFAULT_CONFIG.testNonce,
+    criticalTimeoutMs: normalizeCriticalTimeout(source.criticalTimeoutMs),
   }
 }
 

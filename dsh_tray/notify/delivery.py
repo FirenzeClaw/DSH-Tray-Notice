@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Mapping, Sequence
 
 # 应用名；与 .desktop 的 StartupWMClass 无关，只影响通知中心的归组。
@@ -24,8 +24,12 @@ APP_NAME = "DSH-Tray"
 ACTION_KEY = "default"
 ACTION_LABEL = "打开会话"
 
-# 通知超时（毫秒）。critical 用 0 = 不自动消失。
-TIMEOUT_CRITICAL_MS = 0
+# 通知超时（毫秒）——仅作为条目没带 `timeoutMs` 时的兜底。
+#
+# critical 的兜底值是 5 分钟而不是 0（不自动消失）：实测「不消失」的横幅会占住
+# Plasma 的通知弹窗位，用户不点掉它，**后续所有通知都排队不显示**，看起来就像
+# 通知功能坏了。真正的时限由插件按设置下发（见 types.py 的 `banner_timeout_ms`）。
+TIMEOUT_CRITICAL_MS = 300_000
 TIMEOUT_NORMAL_MS = 5000
 
 # 一次调用的超时；D-Bus 卡住时不该拖住消费循环。
@@ -45,16 +49,59 @@ class DeliveryResult:
     """失败原因（已脱敏）；成功时为 None。"""
 
 
-def _timeout_for(urgency: str) -> int:
-    """按紧急度取超时。
+def timeout_for(entry: Mapping[str, object]) -> int:
+    """取本条通知的横幅停留毫秒数。
 
-    @param urgency - `critical` / `normal`
-    @returns 毫秒；critical 为 0（不自动消失）
+    优先用条目自带的 `timeoutMs`（插件按用户设置下发），缺省才按紧急度兜底。
+
+    @param entry - 通知条目
+    @returns 毫秒数
     """
-    return TIMEOUT_CRITICAL_MS if urgency == "critical" else TIMEOUT_NORMAL_MS
+    raw = entry.get("timeoutMs")
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and raw > 0:
+        return int(raw)
+    return TIMEOUT_CRITICAL_MS if entry.get("urgency") == "critical" else TIMEOUT_NORMAL_MS
 
 
-def build_gdbus_command(entry: Mapping[str, object]) -> list[str]:
+@dataclass(slots=True)
+class PopupRegistry:
+    """会话 → 该会话最近一条桌面弹窗的 id。
+
+    为什么要它：同一会话反复弹通知时，新的一条用 `replaces_id` **顶替**旧横幅，
+    而不是排队。排队会让用户看到一串过期的「需要你审批」，且最旧的那条一直占着
+    弹窗位。
+
+    只在投递成功且拿到 id 时登记；只保留最近 `limit` 个会话，避免长跑进程里
+    会话表无限增长。
+    """
+
+    limit: int = 200
+    _ids: dict[str, int] = field(default_factory=dict)
+
+    def get(self, session_id: str) -> int:
+        """取该会话最近的弹窗 id。
+
+        @param session_id - 会话 id
+        @returns id；没有则 0（0 = 让通知服务新建）
+        """
+        return self._ids.get(session_id, 0)
+
+    def remember(self, session_id: str, notification_id: int) -> None:
+        """登记一次成功投递。
+
+        @param session_id - 会话 id
+        @param notification_id - 通知服务分配的 id
+        """
+        if not session_id or notification_id <= 0:
+            return
+        # 重新插入以刷新顺序：dict 保序，最早插入的排在最前。
+        self._ids.pop(session_id, None)
+        self._ids[session_id] = notification_id
+        while len(self._ids) > self.limit:
+            self._ids.pop(next(iter(self._ids)))
+
+
+def build_gdbus_command(entry: Mapping[str, object], replaces_id: int = 0) -> list[str]:
     """构造 `gdbus call` 命令。
 
     每个参数都带显式类型前缀，这是能调通的关键：
@@ -68,9 +115,9 @@ def build_gdbus_command(entry: Mapping[str, object]) -> list[str]:
     投递会静默回退到 `notify-send`，通知照样弹出，只是没有动作按钮。
 
     @param entry - 通知条目（dict 形态，字段名与 spool 一致）
+    @param replaces_id - 顶替哪条弹窗；0 = 新建
     @returns 完整 argv
     """
-    urgency = str(entry.get("urgency", "normal"))
     title = str(entry.get("title", ""))
     body = str(entry.get("body", ""))
     return [
@@ -84,13 +131,13 @@ def build_gdbus_command(entry: Mapping[str, object]) -> list[str]:
         "--method",
         "org.freedesktop.Notifications.Notify",
         APP_NAME,
-        "uint32 0",
+        f"uint32 {replaces_id:d}",
         "",
         title,
         body,
         f"['{ACTION_KEY}', '{ACTION_LABEL}']",
         "{}",
-        f"int32 {_timeout_for(urgency)}",
+        f"int32 {timeout_for(entry)}",
     ]
 
 
@@ -149,6 +196,7 @@ def deliver_with_runner(
     *,
     has_gdbus: bool | None = None,
     has_notify_send: bool | None = None,
+    replaces_id: int = 0,
 ) -> DeliveryResult:
     """投递一条通知。
 
@@ -159,6 +207,8 @@ def deliver_with_runner(
     @param runner - 命令执行器；测试注入
     @param has_gdbus - 是否可用；None 时探测 PATH
     @param has_notify_send - 同上
+    @param replaces_id - 顶替哪条弹窗；0 = 新建。回退到 notify-send 时不生效
+        （libnotify 不支持顶替），届时会多出一条横幅而不是替换
     @returns 投递结果
     """
     run = runner or _default_runner
@@ -167,7 +217,7 @@ def deliver_with_runner(
 
     if gdbus_available:
         try:
-            code, stdout, stderr = run(build_gdbus_command(entry))
+            code, stdout, stderr = run(build_gdbus_command(entry, replaces_id))
         except Exception as error:  # noqa: BLE001 - 投递失败不得中断调用方
             return DeliveryResult(False, reason=f"gdbus 调用异常：{error}")
         if code == 0:
@@ -188,10 +238,11 @@ def deliver_with_runner(
     return DeliveryResult(False, reason="系统既无 gdbus 也无 notify-send")
 
 
-def deliver(entry: Mapping[str, object]) -> DeliveryResult:
+def deliver(entry: Mapping[str, object], replaces_id: int = 0) -> DeliveryResult:
     """投递一条通知（使用默认真实 runner）。
 
     @param entry - 通知条目
+    @param replaces_id - 顶替哪条弹窗；0 = 新建
     @returns 投递结果
     """
-    return deliver_with_runner(entry)
+    return deliver_with_runner(entry, replaces_id=replaces_id)

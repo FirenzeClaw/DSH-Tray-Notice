@@ -119,7 +119,8 @@ class NotificationListTest(HistoryRedirect):
             history.mark_read(entry_id)
 
         page = NotificationListPage(only_unread=False)
-        page.refresh()
+        # 传 NOW：不传就会用真实时钟，用例会在跨天时失败（已踩过）。
+        page.refresh(now=NOW)
         labels = page.group_labels()
         self.assertIn("今天", labels)
         self.assertIn("昨天", labels)
