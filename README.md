@@ -214,6 +214,38 @@ icons/                         桌面图标（方形画布版）
 - `docs/design.md`：托盘与面板的设计共识（含实测环境事实与通知行为决策表）。
 - `specs/001-notify-console/`：规格、计划、契约、数据模型、任务与验收记录。
 
+## 排查：横幅不出现
+
+`scripts/check-banner.py` 把「横幅到底有没有弹」从主观判断变成可重复的数字：
+发送前后各截一张图，比对右上角横幅区的像素变化。
+
+```sh
+python3 scripts/check-banner.py --selftest   # 先证明检测器有效（不需要桌面）
+python3 scripts/check-banner.py --keep       # 实测；--keep 保留截图便于人工复核
+```
+
+退出码：0 = 检测到横幅，1 = 没检测到，2 = 环境不满足。
+
+**先查通知小程序在不在**。横幅由 Plasma 的「通知」小程序渲染；这个小程序不在面板上时，
+`org.freedesktop.Notifications` 依然存在、依然接受通知并分配 id，但**什么都画不出来**——
+连 `notify-send` 也一样。判断方法：
+
+```sh
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+gdbus call --session --dest org.kde.plasmashell --object-path /PlasmaShell \
+  --method org.kde.PlasmaShell.evaluateScript \
+  "var out=[]; var ps=panels(); for(var i=0;i<ps.length;i++){ var ws=ps[i].widgets(); for(var j=0;j<ws.length;j++){ var t=String(ws[j].type); if(t.indexOf('notif')>=0){ out.push(t); } } } print(out.length?out.join(','):'no notifications applet');"
+# 输出 'no notifications applet' → 横幅不可能出现，去「系统设置 → 通知」或托盘设置里把通知加回去
+```
+
+顺带确认勿扰状态（`false` 才是正常）：
+
+```sh
+gdbus call --session --dest org.freedesktop.Notifications \
+  --object-path /org/freedesktop/Notifications \
+  --method org.freedesktop.DBus.Properties.Get org.freedesktop.Notifications Inhibited
+```
+
 ## 开发
 
 ```sh
