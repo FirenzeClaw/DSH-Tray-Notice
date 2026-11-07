@@ -159,3 +159,60 @@ class GroupingTest(HistoryTestBase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SerializeFieldTest(unittest.TestCase):
+    """历史写盘是显式字段白名单，加字段必须同步改 `_serialize`。
+
+    漏了不会报错——from_json 是宽进的，只会静默丢数据。这个用例就是为此存在的。
+    """
+
+    def test_timeout_ms_survives_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "n.json"
+            with mock.patch.object(history, "history_path", return_value=path):
+                item = NotificationEntry.from_json(
+                    {
+                        "v": 1,
+                        "type": "notification",
+                        "id": "x",
+                        "ts": "2026-11-07T00:00:00Z",
+                        "kind": "needs-approval",
+                        "sessionId": "s",
+                        "sessionTitle": "t",
+                        "title": "a",
+                        "body": "b",
+                        "urgency": "critical",
+                        "openUrl": "u",
+                        "dedupeKey": "d",
+                        "timeoutMs": 120_000,
+                    }
+                )
+                assert item is not None
+                history.append(item, now=datetime.now(timezone.utc))
+                self.assertEqual(history.load()[0].entry.timeout_ms, 120_000)
+
+    def test_workspace_survives_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "n.json"
+            with mock.patch.object(history, "history_path", return_value=path):
+                item = NotificationEntry.from_json(
+                    {
+                        "v": 1,
+                        "type": "notification",
+                        "id": "y",
+                        "ts": "2026-11-07T00:00:00Z",
+                        "kind": "done",
+                        "sessionId": "s",
+                        "sessionTitle": "t",
+                        "workspace": "DSH-Tray&Notice",
+                        "title": "a",
+                        "body": "b",
+                        "urgency": "normal",
+                        "openUrl": "u",
+                        "dedupeKey": "d",
+                    }
+                )
+                assert item is not None
+                history.append(item, now=datetime.now(timezone.utc))
+                self.assertEqual(history.load()[0].entry.workspace, "DSH-Tray&Notice")

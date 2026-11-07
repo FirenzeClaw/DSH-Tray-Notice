@@ -67,6 +67,9 @@ def _serialize(item: StoredNotification) -> dict[str, object]:
         "urgency": entry.urgency,
         "openUrl": entry.open_url,
         "dedupeKey": entry.dedupe_key,
+        # 显式白名单容易漏字段：加字段时必须同时改这里（`_deserialize` 走 from_json，
+        # 是宽进的，所以漏了不会报错，只会静默丢数据——已踩过一次）。
+        "timeoutMs": entry.timeout_ms,
         "read": item.read,
         "replayed": item.replayed,
     }
