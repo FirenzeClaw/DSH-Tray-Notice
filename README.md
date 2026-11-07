@@ -231,7 +231,18 @@ python3 scripts/check-banner.py --keep       # 实测；--keep 保留截图便�
 测出「永远 0%」的假阴性——这个坑我踩过，并因此得出过「Plasma 不渲染通知」的错误结论。
 
 ⚠️ 这个脚本只回答「那一块区域的像素变了没有」，**不区分瞬时横幅与通知中心里的常驻卡片**。
-判读时请人工确认屏幕上出现的是哪种；`--keep` 会保留截图供核对。
+判读时请先关掉现存通知再测（`for i in $(seq 1 300); do gdbus call … CloseNotification "uint32 $i"; done`），
+`--keep` 会保留截图供核对。
+
+### 本机限制：带动作按钮的通知不弹横幅
+
+实测（Plasma 6.6.6）：`actions` 非空时，通知服务接受并返回 id，但**任何位置都不渲染**；
+`actions` 为空则正常弹出。换动作键名、标签、hints、urgency、超时都不改变这个结果。
+全屏 OCR 也确认它没渲染在别处。这与 `notify-send --action` 报「Actions are not supported
+by this notifications server」互为印证。
+
+因此「点横幅直接跳会话」与「横幅能弹出来」在本机二选一。当前实现的选择见
+`specs/001-notify-console/acceptance.md` 的「待决策」一节。
 
 **先查通知小程序在不在**。横幅由 Plasma 的「通知」小程序渲染；这个小程序不在面板上时，
 `org.freedesktop.Notifications` 依然存在、依然接受通知并分配 id，但**什么都画不出来**——
