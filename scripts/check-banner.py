@@ -26,8 +26,12 @@ import tempfile
 import time
 from pathlib import Path
 
-# 横幅区（预览像素）：屏幕右上角，避开顶部面板。
-DEFAULT_REGION = (1050, 20, 1463, 320)
+# 横幅区：**按比例**给出，不是像素。
+#
+# 踩过的坑：spectacle 抓的是物理分辨率（本机 2560x1600），而早期版本写死了预览坐标
+# （1463x915）下的像素值，于是实际裁剪的是图片中左部——横幅明明在右上角，却测出
+# 0.00% 变化，得出「Plasma 不渲染通知」的错误结论。比例坐标对分辨率免疫。
+DEFAULT_REGION_FRAC = (0.74, 0.02, 0.99, 0.50)
 
 # 判定阈值：变化像素占比超过这个比例即认为横幅出现。
 # 实测横幅约占该区域 30%~60%；无横幅时差分 < 0.1%（只有时钟秒数变化）。
@@ -55,7 +59,24 @@ def capture(path: Path) -> bool:
     return result.returncode == 0 and path.exists()
 
 
-def brightness_of_banner_region(path: Path, region: tuple[int, int, int, int]) -> float:
+def region_pixels(size: tuple[int, int], frac: tuple[float, float, float, float]) -> tuple[int, int, int, int]:
+    """把比例区域换算成该图的像素区域。
+
+    @param size - 图像 (宽, 高)
+    @param frac - (x0, y0, x1, y1)，各分量 0~1
+    @returns 像素区域
+    """
+    width, height = size
+    x0, y0, x1, y1 = frac
+    return (
+        int(width * x0),
+        int(height * y0),
+        int(width * x1),
+        int(height * y1),
+    )
+
+
+def brightness_of_banner_region(path: Path, frac: tuple[float, float, float, float]) -> float:
     """取横幅区域的平均亮度（用于给出可读的诊断数字）。
 
     @param path - 截图
@@ -67,11 +88,12 @@ def brightness_of_banner_region(path: Path, region: tuple[int, int, int, int]) -
     except ImportError:
         return -1
     with Image.open(path) as image:
+        region = region_pixels(image.size, frac)
         raw = image.convert("L").crop(region).tobytes()
     return sum(raw) / len(raw) if raw else -1
 
 
-def changed_percent(before: Path, after: Path, region: tuple[int, int, int, int]) -> float:
+def changed_percent(before: Path, after: Path, frac: tuple[float, float, float, float]) -> float:
     """两张图在指定区域的差异像素占比。
 
     @param before - 基线截图
@@ -84,6 +106,7 @@ def changed_percent(before: Path, after: Path, region: tuple[int, int, int, int]
     except ImportError:
         return -1.0
     with Image.open(before) as first, Image.open(after) as second:
+        region = region_pixels(first.size, frac)
         a = first.convert("L").crop(region)
         b = second.convert("L").crop(region)
         if a.size != b.size:
@@ -212,11 +235,12 @@ def selftest() -> int:
 
     # 在横幅区画一块亮矩形，模拟「横幅出现」
     drawn = canvas.copy()
-    ImageDraw.Draw(drawn).rectangle([1060, 40, 1440, 200], fill=200)
+    x0, y0, x1, y1 = region_pixels(canvas.size, DEFAULT_REGION_FRAC)
+    ImageDraw.Draw(drawn).rectangle([x0 + 10, y0 + 20, x1 - 10, y1 - 40], fill=200)
     drawn.save(changed)
 
-    unchanged_percent = changed_percent(base, same, DEFAULT_REGION)
-    changed_rect_percent = changed_percent(base, changed, DEFAULT_REGION)
+    unchanged_percent = changed_percent(base, same, DEFAULT_REGION_FRAC)
+    changed_rect_percent = changed_percent(base, changed, DEFAULT_REGION_FRAC)
 
     print(f"同一对图: {unchanged_percent:.2f}%（应为 0）")
     print(f"横幅区改动: {changed_rect_percent:.2f}%（应 >= {CHANGE_THRESHOLD_PERCENT}）")
@@ -237,8 +261,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--keep", action="store_true", help="保留截图")
     parser.add_argument(
         "--region",
-        default=",".join(str(v) for v in DEFAULT_REGION),
-        help="横幅区域 x0,y0,x1,y1（预览像素）",
+        default=",".join(str(v) for v in DEFAULT_REGION_FRAC),
+        help="横幅区域比例 x0,y0,x1,y1（0~1，与分辨率无关）",
     )
     parser.add_argument("--timeout-ms", type=int, default=30_000, help="测试通知停留毫秒")
     parser.add_argument("--selftest", action="store_true", help="只验证差分逻辑（不需要桌面）")
@@ -247,9 +271,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.selftest:
         return selftest()
 
-    region = tuple(int(part) for part in args.region.split(","))
-    if len(region) != 4:
-        print("region 需要四个整数：x0,y0,x1,y1", file=sys.stderr)
+    region = tuple(float(part) for part in args.region.split(","))
+    if len(region) != 4 or not all(0.0 <= v <= 1.0 for v in region):
+        print("region 需要四个 0~1 的比例：x0,y0,x1,y1", file=sys.stderr)
         return 2
 
     if not notification_server_available():
@@ -279,6 +303,13 @@ def main(argv: list[str] | None = None) -> int:
     after_brightness = brightness_of_banner_region(after, region)
 
     print(f"横幅区变化: {percent:.2f}%  (阈值 {CHANGE_THRESHOLD_PERCENT}%)")
+    try:
+        from PIL import Image as _Image
+
+        with _Image.open(after) as shot:
+            print(f"截图分辨率: {shot.size[0]}x{shot.size[1]}  → 裁剪区 {region_pixels(shot.size, region)}")
+    except ImportError:
+        pass
     print(f"区域亮度: 之前 {before_brightness:.1f} → 之后 {after_brightness:.1f}")
     print(f"截图目录: {workdir}")
 
