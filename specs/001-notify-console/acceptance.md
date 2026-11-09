@@ -164,6 +164,45 @@ DSH 0.2.1-rc.5；Node 24.22.1
 「系统不渲染」的证据，而它其实只是「我裁错了地方」——但订正之后，同一个 0.00%
 在正确的区域上反而指向了一个**真实**的缺陷。
 
+#### 源码复核（2026-11-09）：上面的归因站不住
+
+读 `plasma-workspace` 6.6 源码后，这条结论**没有被源码支持**：
+
+- `libnotificationmanager/notificationfilterproxymodel.cpp:150-227` 是弹窗模型的过滤器，
+  全部条件只有五类：`expired` → `dismissed` → 应用黑名单 → 白名单（仅免打扰时生效）
+  → `urgency` 不在允许集合 → 因抑制期加入。**没有任何一条与 `actions` 相关**。
+- `applets/notifications/global/Globals.qml:429-465` 构造弹窗模型时同样只设了
+  `blacklistedDesktopEntries` / `blacklistedNotifyRcNames` / `urgencies` /
+  `showExpired` / `showDismissed` / `showAddedDuringInhibition` / `limit` / `groupMode`。
+
+也就是说，「actions 非空导致不弹横幅」在实现层找不到支点。表格里的 `0.00%` 更可能
+来自三个未控变量：
+
+1. **1 秒去重**：`libnotificationmanager/server_p.cpp:136-250` 会丢弃 1 秒内
+   `applicationName`+`summary`+`body`+`desktopEntry`+`eventId`+`actionNames`+`icon`+`urls`
+   完全相同的请求（回 `ExcessNotificationGeneration`，返回 id 0）。当时的对照实验
+   summary/body 区分度不足。
+2. **通知中心未真正清空**：清空与发送之间若有残留卡片，差分基线就不可比。
+3. **`plasmanotifyrc` 状态**：测试期间注册了 `[Applications][dsh-tray] Seen=true`，
+   需确认无 `ShowPopups=false`（已复查：托盘与应用本身都不在黑名单，仅两个 waydroid
+   应用是 `ShowPopups=false`）。
+
+**处置**：已按受控条件复核，**现象属实且稳定复现，不是去重、也不是测量误差**。
+复核细节见
+[`research/linux-notification-actions.md`](../../research/linux-notification-actions.md) 第五节。
+要点：
+
+- 两臂各 5 轮交错、唯一文案、清空后静置 1.6 s：`actions=[]` 均值 13.20%（25.21/12.10/
+  9.56/9.58/9.56），`actions=['default','打开会话']` **五轮全 0.00%**；
+- 返回 id 全部非零（68–77），**排除 1 秒去重**；
+- 全屏 OCR 搜索唯一标记词：无 actions 找得到，有 actions **找不到** —— 屏幕上根本
+  没有这段文字；
+- `plasmashell` 默认日志级别下无相关报错，根因需开 debug 日志并重启 plasmashell 才能
+  定位，属侵入性操作，未执行。
+
+**结论**：本机 Plasma 6.6.6 上，`actions` 非空的通知被接受但不渲染。因此 KDE 下
+**横幅可见与横幅可点互斥**，「点横幅」不可实现，交互必须放在托盘侧。
+
 ### 交互路径实测：系统通知上没有任何可点区域
 
 用户要求「点击横幅跳面板」与「点击横幅跳会话」两种模式可配置。为确定可行路径，
@@ -178,22 +217,60 @@ DSH 0.2.1-rc.5；Node 24.22.1
 **结论**：本机 Plasma 6.6.6 上，系统通知**没有任何可交互区域**——
 要么带 `actions` 导致整条通知不可见，要么可见但点哪里都没反应（包括富文本链接）。
 
-因此「点横幅」这个前提不成立，两种模式都无法通过系统通知实现。
+#### 源码复核（2026-11-09）：为什么点正文没反应
+
+`applets/notifications/delegates/DelegatePopup.qml:135` 是正文的点击处理器：
+
+```qml
+onClicked: {
+    if (delegateRoot.modelInterface.hasDefaultAction && !delegateRoot.hoveredLink) {
+        delegateRoot.modelInterface.defaultActionInvoked();
+    }
+}
+```
+
+没有 `hasDefaultAction` 时，**点正文不进入任何分支**——不发 `ActionInvoked`、不关闭、
+不做任何事。标题区（`DelegatePopup.qml:106`）同理，且要求 `!hasBodyText`。
+
+`hasDefaultAction` 有两个来源（`Globals.qml:701-715`）：
+
+1. 通知自己声明了键名为 `default` 的动作；
+2. Plasma 在任务栏模型里找到 `AppId === desktopEntry + ".desktop"` 的窗口，
+   把「点击 = 激活该窗口」当作默认动作。
+
+托盘应用没有窗口，任务栏里也没有它的条目，**来源 2 永远不成立**。而当时的通知既没有
+声明 `default` 动作（无 `actions`），发送方也不是带窗口的应用 —— 所以点击必然无反应。
+富文本链接不触发导航同理：`hoveredLink` 为真时反而会跳过默认动作分支。
+
+**这不是 Plasma 的缺陷，而是我们没用对协议。** 规范（1.3 §ActionInvoked）明确
+「点通知本体」属于全局 invoking，对应动作键就是 `default`；要吃到这个交互，
+**通知必须声明 `default` 动作**。
+
+因此上一节的「点横幅这个前提不成立」需要修正：**在声明 `default` 动作之后，前提可能成立**，
+而这正好与「带 actions 不弹横幅」的待复核异常撞在一起 —— 两者必须一起复核。
 
 ## 待决策：交互该放在哪（需用户定）
 
-用户要求「点横幅跳面板」与「点横幅跳会话」两种模式可配置。实测表明「点横幅」这个
-前提在本机不成立（见上一节），所以交互必须换载体：
+用户要求「点横幅跳面板」与「点横幅跳会话」两种模式可配置。当前证据分两层：
+
+- **协议层**（`research/linux-notification-actions.md`）：声明 `default` 动作是让 KDE
+  本体点击生效的唯一途径；显式动作按钮是四家桌面环境唯一一致的可见交互；
+  但规范允许服务器忽略 actions，**不能把通知当可靠通道**。
+- **本机实测层**：带 actions 的通知是否真不弹横幅，尚未在受控条件下复核。
+
+因此方案表更新为：
 
 | 方案 | 横幅 | 一次点击能到哪 | 代价 |
 |---|---|---|---|
-| A. 去 `actions`，交互全走托盘 | ✅ 有 | 托盘左键 → 面板 → 点行 → 会话（两步） | 与原型「点通知跳会话」不同 |
-| B. 保留 `actions` | ❌ 无 | — | 通知完全不可见，不可接受 |
+| A. 去 `actions`，交互全走托盘 | ✅ 有（已验） | 托盘左键 → 面板 → 点行 → 会话（两步） | 与原型「点通知跳会话」不同；**确定可行** |
+| B. 保留 `actions` | ❌ 无（待复核） | — | 若复核证伪则完全不可接受 |
 | C. 去 `actions`，托盘左键**直接打开最新未读会话** | ✅ 有 | 一次点击直达会话；看列表用右键菜单 | 牺牲「先看列表」的默认行为 |
 | D. A 与 C 做成设置项 | ✅ 有 | 由设置决定 | 需要多一套状态与测试 |
+| **E. 声明 `default` 动作 + 显式按钮** | 取决于 B 的复核结果 | 点横幅 = 默认动作（跳会话或开面板） | 若 B 成立则整条通知不可见，E 随之作废 |
 
-本机实测数据排除 B。A/C/D 都可行，D 最贴近用户「两种模式可选」的原意——
-只是切换的载体从「点哪条通知」变成「点托盘时做什么」。
+**推荐路径**：先做受控复核（第五节方案）。若 actions 不影响横幅 → 选 **E + D**
+（既满足用户「两种模式可选」的原意，又保持跨桌面可移植）；若 actions 确实压掉横幅 →
+退到 **D**（把切换载体从「点哪条通知」变成「点托盘时做什么」）。B 在任何情况下都排除。
 
 ## 已知限制
 
