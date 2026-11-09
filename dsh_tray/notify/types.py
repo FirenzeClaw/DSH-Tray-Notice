@@ -258,14 +258,58 @@ class SessionState:
         return cls(v=SCHEMA_VERSION, ts=ts, sessions=tuple(parsed))
 
 
-def parse_row(raw: Any) -> "NotificationEntry | SessionState | None":
+@dataclass(frozen=True)
+class TraySettings:
+    """托盘外观设置，由插件经 spool 下发。
+
+    为什么需要这条通道：设置只对插件可见（contracts C1），托盘是纯 Python 进程、
+    不解析 DSH 的 profile 配置。让插件把外观设置写成一种 spool 行，双边的耦合
+    仍然只有 spool 一个，也不必给托盘开一条读设置文件的新路径。
+    """
+
+    v: int
+    ts: datetime
+    #: 未查看列表要露出几条。
+    rows_visible: int = 5
+    #: 点击横幅的行为。
+    banner_click: str = "panel"
+    #: 通知是否带动作按钮；`auto` 由托盘按平台判定。
+    notification_actions: str = "auto"
+
+    @classmethod
+    def from_json(cls, raw: Mapping[str, Any]) -> "TraySettings | None":
+        """从 spool 行解析。
+
+        @param raw - 已 `json.loads` 的映射
+        @returns 设置对象；版本不符或关键字段缺失时 None
+        """
+        if raw.get("v") != SCHEMA_VERSION:
+            return None
+        if raw.get("type") != "tray-settings":
+            return None
+        ts = parse_ts(raw.get("ts"))
+        if ts is None:
+            return None
+        rows = raw.get("rowsVisible")
+        click = raw.get("bannerClick")
+        actions = raw.get("notificationActions")
+        return cls(
+            v=SCHEMA_VERSION,
+            ts=ts,
+            rows_visible=max(3, min(12, int(rows))) if isinstance(rows, int) else 5,
+            banner_click="session" if click == "session" else "panel",
+            notification_actions=actions if actions in ("auto", "on", "off") else "auto",
+        )
+
+
+def parse_row(raw: Any) -> "NotificationEntry | SessionState | TraySettings | None":
     """把一行 spool 数据解析成契约对象。
 
     未知 `type` 与版本不符都返回 None，由调用方计入跳过数——托盘不该因为插件先
     升级或写了半行就崩掉（contracts C1）。
 
     @param raw - 已 `json.loads` 的任意值
-    @returns 通知条目或会话快照；无法识别时 None
+    @returns 通知条目、会话快照或托盘设置；无法识别时 None
     """
     if not isinstance(raw, Mapping):
         return None
@@ -274,4 +318,6 @@ def parse_row(raw: Any) -> "NotificationEntry | SessionState | None":
         return NotificationEntry.from_json(raw)
     if row_type == "session-state":
         return SessionState.from_json(raw)
+    if row_type == "tray-settings":
+        return TraySettings.from_json(raw)
     return None

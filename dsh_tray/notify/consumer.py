@@ -25,7 +25,7 @@ from .history import append as history_append
 from .intents import DisplayModel
 from .log import Logger
 from .spool import read_new, resolve_dsh_home, spool_path_for
-from .types import NotificationEntry, SessionState
+from .types import NotificationEntry, SessionState, TraySettings
 
 # 轮询间隔（毫秒）。DSH 在跑时 200 ms，不在跑时 1000 ms。
 FAST_INTERVAL_MS = 200
@@ -101,6 +101,8 @@ class Consumer:
         self._slow = slow_interval_ms
         self.model = DisplayModel()
         self.session_states: tuple[SessionState, ...] = ()
+        #: 最近一次收到的托盘外观设置；None 表示插件还没下发过。
+        self.tray_settings: TraySettings | None = None
         self.replayed_total = 0
         self._primed = False
 
@@ -139,6 +141,9 @@ class Consumer:
         if batch.session_states:
             # 全量替换：只保留最后一条快照。
             self.session_states = (batch.session_states[-1],)
+        if batch.tray_settings is not None:
+            # 同样全量覆盖：设置改回默认值时，旧值必须被丢掉而不是合并。
+            self.tray_settings = batch.tray_settings
 
         delivered = 0
         stored = 0

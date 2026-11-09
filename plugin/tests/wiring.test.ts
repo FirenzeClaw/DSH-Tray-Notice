@@ -105,7 +105,12 @@ describe('订阅装配', () => {
       },
     )
 
-    assert.deepEqual(writesAtNext, [2], 'next 时应当已写入快照与通知各一条')
+    // 装载时先下发一条 tray-settings，所以这里计数是 3 而不是 2；断言的是
+    // 「next 之前那些行已经落盘」，与具体条数无关的话就退化成不验证顺序了，
+    // 因此改为按类型断言：此刻通知行必须已经存在。
+    const typesAtNext = spool.rows.slice(0, writesAtNext[0] ?? 0).map((row) => row.type)
+    assert.ok(typesAtNext.includes('notification'), 'next 时通知必须已写入')
+    assert.ok(typesAtNext.includes('session-state'), 'next 时会话快照必须已写入')
     assert.equal(spool.rows.filter((row) => row.type === 'notification').length, 1)
     wiring.dispose()
   })

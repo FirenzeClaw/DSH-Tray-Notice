@@ -56,6 +56,12 @@ export interface TrayNotifyConfig {
    * 而设置页写完就忘；计数器每次 +1，插件据此判断「用户又点了一次」。
    */
   readonly testNonce: number
+  /** 未查看列表要露出几条；3–12，默认 5。 */
+  readonly rowsVisible: number
+  /** 点击横幅的行为：`panel` 开托盘面板，`session` 直接进会话。 */
+  readonly bannerClick: 'panel' | 'session'
+  /** 通知是否带动作按钮：`auto` 交给托盘按平台判定。 */
+  readonly notificationActions: 'auto' | 'on' | 'off'
 }
 
 /** 全关。 */
@@ -87,6 +93,10 @@ export const PRESET_GROUPS: Readonly<Record<Exclude<Preset, 'custom'>, GroupSwit
   },
 }
 
+/** 面板「露出几条通知」的取值范围。下限保证还能看出列表，上限避免超出屏幕。 */
+export const ROWS_VISIBLE_MIN = 3
+export const ROWS_VISIBLE_MAX = 12
+
 /** 默认配置：标准预设。 */
 export const DEFAULT_CONFIG: TrayNotifyConfig = {
   preset: 'standard',
@@ -96,6 +106,9 @@ export const DEFAULT_CONFIG: TrayNotifyConfig = {
   bodyLimit: 200,
   criticalTimeoutMs: 300_000,
   testNonce: 0,
+  rowsVisible: 5,
+  bannerClick: 'panel',
+  notificationActions: 'auto',
 }
 
 /** 组级覆盖：允许只给一个组、或只给 needs-you 的一个子项。 */
@@ -231,7 +244,23 @@ export function normalizeConfig(raw: unknown): TrayNotifyConfig {
         ? Math.floor(source.testNonce)
         : DEFAULT_CONFIG.testNonce,
     criticalTimeoutMs: normalizeCriticalTimeout(source.criticalTimeoutMs),
+    rowsVisible: normalizeRowsVisible(source.rowsVisible),
+    bannerClick: source.bannerClick === 'session' ? 'session' : DEFAULT_CONFIG.bannerClick,
+    notificationActions:
+      source.notificationActions === 'on' || source.notificationActions === 'off'
+        ? source.notificationActions
+        : DEFAULT_CONFIG.notificationActions,
   }
+}
+
+/**
+ * 规范化 rowsVisible：非数字退回默认，越界钳到区间内。
+ * @param value - 任意输入
+ * @returns 3–12 之间的整数
+ */
+export function normalizeRowsVisible(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_CONFIG.rowsVisible
+  return Math.min(ROWS_VISIBLE_MAX, Math.max(ROWS_VISIBLE_MIN, Math.floor(value)))
 }
 
 /**

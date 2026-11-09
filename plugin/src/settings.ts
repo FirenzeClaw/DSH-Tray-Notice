@@ -117,6 +117,7 @@ export interface SettingsBinding {
  * @param settings - 设置服务；undefined 时只返回默认策略且不订阅
  * @param logger - 日志器
  * @param onTestRequested - 设置页点了「发送测试通知」时回调（`testNonce` 变大）
+ * @param onPolicyChanged - 策略重读后回调；用于把托盘外观设置下发给托盘
  * @returns 绑定句柄
  */
 export function bindSettings(
@@ -124,6 +125,7 @@ export function bindSettings(
   settings: SettingsReader | undefined,
   logger: Logger,
   onTestRequested?: () => void,
+  onPolicyChanged?: (policy: Policy) => void,
 ): SettingsBinding {
   let policy = createPolicy(readConfig(settings, logger))
   let lastTestNonce = policy.config.testNonce
@@ -136,6 +138,7 @@ export function bindSettings(
       lastTestNonce = policy.config.testNonce
       onTestRequested?.()
     }
+    onPolicyChanged?.(policy)
   }
 
   // 只在事件属于本命名空间时重读：宿主会把任何条目的变更都广播出来，全量重读

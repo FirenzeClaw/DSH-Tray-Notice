@@ -238,6 +238,10 @@ class TrayApp:
             return self._panel
 
         panel = Panel()
+        # 装好设置再挂控制区：设置可能早于面板到手（插件先起），此时直接用上。
+        settings = self._consumer.tray_settings
+        if settings is not None:
+            panel.set_rows_visible(settings.rows_visible)
         control = ControlArea()
         control.primary_clicked.connect(self._on_panel_primary)
         control.restart_clicked.connect(self._on_restart)
@@ -385,6 +389,11 @@ class TrayApp:
         interval = self._consumer.next_interval_ms(running)
         if self._notify_timer.interval() != interval:
             self._notify_timer.setInterval(interval)
+
+        # 外观设置随 spool 下来：插件可能晚于托盘启动，也可能用不同配置重启。
+        settings = self._consumer.tray_settings
+        if settings is not None and self._panel is not None:
+            self._panel.set_rows_visible(settings.rows_visible)
 
         if result.stored > 0 and result.delivered == 0:
             # 有事件但一条都没投出去：多半是通知服务不可用。

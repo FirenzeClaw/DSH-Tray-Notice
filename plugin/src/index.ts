@@ -44,6 +44,7 @@ import {
   type SessionView,
 } from './events.ts'
 import type { TurnEndReasonKind } from './kinds.ts'
+import { SCHEMA_VERSION } from './types.ts'
 
 /** 插件名；也是设置命名空间与 bundle patch 里的 id。 */
 export const name = 'dsh-tray-notify'
@@ -115,12 +116,27 @@ export function wire(
   spool: SpoolWriter,
   now: () => Date = () => new Date(),
 ): Wiring {
+  /** 把托盘外观设置写成一条 spool 行；设置变动与装载时各写一次。 */
+  const publishTraySettings = (policy: Policy): void => {
+    spool.append({
+      v: SCHEMA_VERSION,
+      type: 'tray-settings',
+      ts: now().toISOString(),
+      rowsVisible: policy.config.rowsVisible,
+      bannerClick: policy.config.bannerClick,
+      notificationActions: policy.config.notificationActions,
+    })
+  }
+
   const settingsBinding = bindSettings(
     host as unknown as Pick<Context, 'on'>,
     host.settings,
     logger,
     () => emitTestNotification(),
+    publishTraySettings,
   )
+  // 装载时就下发一次：托盘可能比插件先起，否则要等用户动一次设置才生效。
+  publishTraySettings(settingsBinding.current())
   const tracker = createSessionTracker((state) => spool.append(state), () => now().getTime())
   const deferrer = createDeferrer(() => now().getTime(), (message) => logger.info(message))
   const disposers: (() => boolean)[] = []

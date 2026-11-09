@@ -17,7 +17,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from .types import NotificationEntry, SessionState, parse_row
+from .types import NotificationEntry, SessionState, TraySettings, parse_row
 
 # 偏移文件名（放在 state 目录，与锁和日志同处）。
 OFFSET_FILENAME = "spool-offset.json"
@@ -34,11 +34,18 @@ class SpoolBatch:
     session_states: tuple[SessionState, ...]
     skipped: int
     """解析失败或版本不符的行数（含未知 type）。"""
+    tray_settings: "TraySettings | None" = None
+    """本批里最后一条托盘外观设置；一个批次内只认最后一条。"""
 
     @property
     def is_empty(self) -> bool:
         """本轮是否什么都没读到。"""
-        return not self.notifications and not self.session_states and self.skipped == 0
+        return (
+            not self.notifications
+            and not self.session_states
+            and self.tray_settings is None
+            and self.skipped == 0
+        )
 
 
 def _state_path(state_dir: Path) -> Path:
@@ -133,6 +140,7 @@ def read_new(spool_path: Path, state_dir: Path) -> SpoolBatch:
 
     notifications: list[NotificationEntry] = []
     states: list[SessionState] = []
+    settings: TraySettings | None = None
     skipped = 0
     for raw_line in payload.split(b"\n"):
         if not raw_line.strip():
@@ -151,11 +159,14 @@ def read_new(spool_path: Path, state_dir: Path) -> SpoolBatch:
             skipped += 1
         elif isinstance(row, NotificationEntry):
             notifications.append(row)
+        elif isinstance(row, TraySettings):
+            # 只保留本批最后一条：设置是全量覆盖，中间态没有意义。
+            settings = row
         else:
             states.append(row)
 
     save_offset(state_dir, spool_path, next_offset)
-    return SpoolBatch(tuple(notifications), tuple(states), skipped)
+    return SpoolBatch(tuple(notifications), tuple(states), skipped, settings)
 
 
 def spool_path_for(dsh_home: Path) -> Path:

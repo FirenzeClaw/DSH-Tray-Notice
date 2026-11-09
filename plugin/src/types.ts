@@ -114,5 +114,32 @@ export interface SessionStateEntry {
   readonly sessions: readonly SessionRow[]
 }
 
+/**
+ * 托盘侧外观设置。
+ *
+ * 为什么走 spool 而不是让托盘读 DSH 的设置文件：设置只对插件可见（contracts C1），
+ * 托盘是纯 Python 进程、不解析 profile 配置。插件把设置写成一种 spool 行，
+ * 托盘照常消费即可，双边的耦合仍然只有 spool 一个。
+ *
+ * `sessions` 那类是全量替换，这里同样：托盘收到就整体覆盖，不做字段合并——
+ * 否则「把某一项改回默认」会因为托盘保留了旧值而失效。
+ */
+export interface TraySettingsEntry {
+  readonly v: typeof SCHEMA_VERSION
+  readonly type: 'tray-settings'
+  readonly ts: string
+  /** 未查看列表要露出几条（3–12）。 */
+  readonly rowsVisible: number
+  /** 点击横幅时的行为：`panel` 打开托盘面板，`session` 直接进会话。 */
+  readonly bannerClick: 'panel' | 'session'
+  /**
+   * 是否在桌面通知里声明动作按钮。
+   *
+   * `auto` 由托盘按平台决定（KDE 上带 actions 会让通知整条不渲染，见
+   * research/linux-notification-actions.md 第五节），`on` / `off` 是用户强制。
+   */
+  readonly notificationActions: 'auto' | 'on' | 'off'
+}
+
 /** spool 行。 */
-export type SpoolRow = NotificationEntry | SessionStateEntry
+export type SpoolRow = NotificationEntry | SessionStateEntry | TraySettingsEntry

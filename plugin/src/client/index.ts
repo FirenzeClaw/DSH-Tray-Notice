@@ -208,6 +208,43 @@ export function criticalTimeoutOf(raw: unknown): number {
 }
 
 /** 与服务端 `config.ts` 保持一致的下限、上限与默认值。 */
+/**
+ * 读出「面板露出几条通知」。
+ * @param raw - 设置原始值
+ * @returns 3–12 之间的整数
+ */
+export function rowsVisibleOf(raw: unknown): number {
+  const value = typeof raw === 'object' && raw !== null ? (raw as { rowsVisible?: unknown }) : {}
+  const rows = value.rowsVisible
+  if (typeof rows !== 'number' || !Number.isFinite(rows)) return DEFAULT_ROWS_VISIBLE
+  return Math.min(ROWS_VISIBLE_MAX, Math.max(ROWS_VISIBLE_MIN, Math.floor(rows)))
+}
+
+/**
+ * 读出点击横幅的行为。
+ * @param raw - 设置原始值
+ * @returns `panel` 或 `session`
+ */
+export function bannerClickOf(raw: unknown): 'panel' | 'session' {
+  const value = typeof raw === 'object' && raw !== null ? (raw as { bannerClick?: unknown }) : {}
+  return value.bannerClick === 'session' ? 'session' : 'panel'
+}
+
+/**
+ * 读出通知动作按钮策略。
+ * @param raw - 设置原始值
+ * @returns `auto` / `on` / `off`
+ */
+export function notificationActionsOf(raw: unknown): 'auto' | 'on' | 'off' {
+  const value = typeof raw === 'object' && raw !== null ? (raw as { notificationActions?: unknown }) : {}
+  const mode = value.notificationActions
+  return mode === 'on' || mode === 'off' ? mode : 'auto'
+}
+
+export const ROWS_VISIBLE_MIN = 3
+export const ROWS_VISIBLE_MAX = 12
+export const DEFAULT_ROWS_VISIBLE = 5
+
 export const CRITICAL_TIMEOUT_MIN_MS = 5_000
 export const CRITICAL_TIMEOUT_MAX_MS = 3_600_000
 export const DEFAULT_CRITICAL_TIMEOUT_MS = 300_000
@@ -297,6 +334,12 @@ function TrayNotifySection(): ReactElement {
    * 服务端，会连着提交三个值并互相踩 revision。只在回车/失焦时提交一次。
    */
   const [criticalSecondsDraft, setCriticalSecondsDraft] = useState<string | undefined>(undefined)
+
+  const rowsVisible = useMemo(() => rowsVisibleOf(value), [value])
+  const bannerClick = useMemo(() => bannerClickOf(value), [value])
+  const notificationActions = useMemo(() => notificationActionsOf(value), [value])
+  /** 行数输入的草稿，理由同 criticalSecondsDraft。 */
+  const [rowsDraft, setRowsDraft] = useState<string | undefined>(undefined)
 
   const load = useCallback(async () => {
     if (settings === undefined) return
@@ -391,6 +434,17 @@ function TrayNotifySection(): ReactElement {
     if (ms === criticalTimeoutMs) return
     void write({ criticalTimeoutMs: ms })
   }, [criticalSecondsDraft, criticalTimeoutMs, write])
+
+  /** 提交行数草稿：夹到 3–12，与当前值相同则不写。 */
+  const commitRows = useCallback(() => {
+    if (rowsDraft === undefined) return
+    const parsed = Number(rowsDraft.trim())
+    setRowsDraft(undefined)
+    if (!Number.isFinite(parsed)) return
+    const next = Math.min(ROWS_VISIBLE_MAX, Math.max(ROWS_VISIBLE_MIN, Math.round(parsed)))
+    if (next === rowsVisible) return
+    void write({ rowsVisible: next })
+  }, [rowsDraft, rowsVisible, write])
 
   const sendTest = useCallback(() => {
     // 计数器 +1：布尔改成 true 后必须改回才能再触发，而设置页写完就忘。
@@ -545,6 +599,113 @@ function TrayNotifySection(): ReactElement {
             },
           }),
           jsx('span', { style: { fontSize: '12px', opacity: 0.6 }, children: '秒' }),
+        ],
+      }),
+      jsxs('div', {
+        style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0' },
+        children: [
+          jsxs('div', {
+            style: { flex: '1', minWidth: '0' },
+            children: [
+              jsx('div', { style: { fontSize: '14px' }, children: '面板显示条数' }),
+              jsx('div', {
+                style: { fontSize: '12px', opacity: 0.65, marginTop: '2px' },
+                children: '托盘面板一次能看到几条通知（3–12）。默认 5：一屏看清最近发生了什么，又不用频繁滚动。',
+              }),
+            ],
+          }),
+          jsx('input', {
+            type: 'number',
+            min: ROWS_VISIBLE_MIN,
+            max: ROWS_VISIBLE_MAX,
+            step: 1,
+            disabled,
+            value: rowsDraft ?? String(rowsVisible),
+            onChange: (event: { target: { value: string } }) => setRowsDraft(event.target.value),
+            onBlur: commitRows,
+            onKeyDown: (event: { key: string }) => {
+              if (event.key === 'Enter') commitRows()
+            },
+            style: {
+              width: '90px',
+              fontSize: '13px',
+              padding: '5px 8px',
+              borderRadius: '6px',
+              border: '1px solid rgba(255,255,255,.14)',
+              background: 'transparent',
+              color: 'inherit',
+            },
+          }),
+          jsx('span', { style: { fontSize: '12px', opacity: 0.6 }, children: '条' }),
+        ],
+      }),
+      jsxs('div', {
+        style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0' },
+        children: [
+          jsxs('div', {
+            style: { flex: '1', minWidth: '0' },
+            children: [
+              jsx('div', { style: { fontSize: '14px' }, children: '点击通知横幅时' }),
+              jsx('div', {
+                style: { fontSize: '12px', opacity: 0.65, marginTop: '2px' },
+                children: '仅对支持点击的桌面生效。KDE Plasma 6 上带动作按钮的通知不会显示（见调研文档），此时该项无效。',
+              }),
+            ],
+          }),
+          jsxs('select', {
+            disabled,
+            value: bannerClick,
+            onChange: (event: { target: { value: string } }) => {
+              void write({ bannerClick: event.target.value })
+            },
+            style: {
+              fontSize: '13px',
+              padding: '5px 8px',
+              borderRadius: '6px',
+              border: '1px solid rgba(255,255,255,.14)',
+              background: 'transparent',
+              color: 'inherit',
+            },
+            children: [
+              jsx('option', { value: 'panel', children: '打开托盘面板' }, 'panel'),
+              jsx('option', { value: 'session', children: '直接进入会话' }, 'session'),
+            ],
+          }),
+        ],
+      }),
+      jsxs('div', {
+        style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0' },
+        children: [
+          jsxs('div', {
+            style: { flex: '1', minWidth: '0' },
+            children: [
+              jsx('div', { style: { fontSize: '14px' }, children: '通知动作按钮' }),
+              jsx('div', {
+                style: { fontSize: '12px', opacity: 0.65, marginTop: '2px' },
+                children: '「自动」按平台决定：KDE 上关闭（带按钮会导致整条通知不显示），其它桌面开启。',
+              }),
+            ],
+          }),
+          jsxs('select', {
+            disabled,
+            value: notificationActions,
+            onChange: (event: { target: { value: string } }) => {
+              void write({ notificationActions: event.target.value })
+            },
+            style: {
+              fontSize: '13px',
+              padding: '5px 8px',
+              borderRadius: '6px',
+              border: '1px solid rgba(255,255,255,.14)',
+              background: 'transparent',
+              color: 'inherit',
+            },
+            children: [
+              jsx('option', { value: 'auto', children: '自动' }, 'auto'),
+              jsx('option', { value: 'on', children: '开启' }, 'on'),
+              jsx('option', { value: 'off', children: '关闭' }, 'off'),
+            ],
+          }),
         ],
       }),
       jsxs('div', {
