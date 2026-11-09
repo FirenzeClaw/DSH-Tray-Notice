@@ -195,23 +195,37 @@ actions 相关过滤，因此列为待复核。已按受控条件重测，**结�
 
 **屏幕上根本不存在这段文字。**
 
-### 5.4 结论与影响
+### 5.4 通知中心抽屉同样为空（决定性）
+
+弹窗与抽屉在 Plasma 里是同一个 `Notifications` 模型的两套视图，过滤条件不同
+（`Globals.qml:429-465`）。因此还需确认带 actions 的通知是否只是「不进弹窗、但仍在
+抽屉里」。
+
+实测：发出 `id=83`（summary 含唯一标记 `DWR9K7`、`actions=['default','打开会话']`、
+`expire_timeout=0`），随后由用户在真实桌面打开通知中心抽屉。抽屉标题为「通知」，
+正文为 **「没有未读通知」** 的空状态，`DWR9K7` 在抽屉中同样不存在。
+
+**结论：带 actions 的通知既不进弹窗、也不进抽屉 —— 在本机 Plasma 6.6.6 上完全不可见。**
+它只存在于服务端的内存里（返回了有效 id），没有任何用户可见的呈现。
+
+### 5.5 结论与影响
 
 在本机 Plasma 6.6.6 上，**`actions` 非空的 D-Bus 通知会被接受（返回有效 id），但不会
-渲染在任何位置**。源码层面未见对应过滤，`plasmashell` 默认日志级别下也没有相关报错
-（仅一条无关的 Seedvault 记录），因此根因需开启 `org.kde.plasma.notifications.debug`
-并重启 plasmashell 才能进一步定位 —— 属于侵入性操作，未执行。
+渲染在任何位置** —— 弹窗、抽屉、全屏 OCR 三处都找不到。源码层面未见对应过滤，
+`plasmashell` 默认日志级别下也没有相关报错（仅一条无关的 Seedvault 记录），因此根因
+需开启 `org.kde.plasma.notifications.debug` 并重启 plasmashell 才能进一步定位 ——
+属于侵入性操作，未执行。
 
 对本项目的直接影响：
 
 - **KDE 上「点横幅跳转」不可实现。** 要让横幅可点，必须声明 `default` 动作；而声明动作
-  又会让整条通知消失 —— 两者在当前 Plasma 版本下互斥。
+  又会让整条通知消失（连抽屉都不给）—— 两者在当前 Plasma 版本下互斥。
 - 因此第二节 2.2 给出的「声明 `default` 动作」方案，**在本机 Plasma 上不适用**，
   仅对 GNOME / XFCE / Dunst 有意义。
 - 可行的通知形态只有一种：**不带 actions 的通知**（横幅可见，但点它没有任何反应）。
 - 交互必须放在托盘侧；「点横幅」作为可选能力，按平台能力决定是否启用。
 
-### 5.5 复现脚本
+### 5.6 复现脚本
 
 `/tmp/ab-actions-probe.py`（本次使用，未入库）：复用 `scripts/check-banner.py` 的
 `capture` / `changed_percent` / `close_notification`，两臂交错各 5 轮。
