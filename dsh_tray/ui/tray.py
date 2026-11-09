@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import sys
 import threading
 import webbrowser
 from typing import Callable
@@ -17,6 +18,7 @@ from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from .. import icons
 from ..lifecycle import Instance, Lifecycle, LifecycleResult, State
+from ..notify import history
 from ..notify.click import handle_click
 from ..notify.sessionstate import SessionTable
 from .control import ControlArea
@@ -355,10 +357,32 @@ class TrayApp:
         @returns 投递结果
         """
         session_id = str(entry.get("sessionId", ""))
-        result = deliver(entry, replaces_id=self._popups.get(session_id))
+        result = deliver(
+            entry,
+            replaces_id=self._popups.get(session_id),
+            with_actions=self._actions_enabled(),
+        )
         if result.delivered and result.notification_id is not None:
             self._popups.remember(session_id, result.notification_id)
         return result
+
+    def _actions_enabled(self) -> bool:
+        """桌面通知是否声明动作按钮。
+
+        平台默认：Linux/KDE 关闭——Plasma 6.6.6 上带 actions 的通知会被接受但
+        完全不渲染（横幅、通知中心都看不到，见 research/linux-notification-actions.md
+        第五节）。其它平台开启，那里点了能跳会话。
+        用户设置 `on`/`off` 可强制覆盖，`auto` 走平台默认。
+
+        @returns 是否带动作
+        """
+        settings = self._consumer.tray_settings
+        mode = settings.notification_actions if settings is not None else "auto"
+        if mode == "on":
+            return True
+        if mode == "off":
+            return False
+        return not sys.platform.startswith("linux")
 
     def _on_notify_tick(self) -> None:
         """一轮通知消费：读 spool、投递、入库，并按 DSH 状态调整间隔。
@@ -408,7 +432,7 @@ class TrayApp:
             self._render(state, instance, self._lifecycle.last_error)
 
     def _on_notification_action(self, notification_id: int, action_key: str) -> None:
-        """系统通知被点击：标记已读并跳到对应会话。
+        """系统通知被点击：按设置决定去面板还是直接进会话。
 
         @param notification_id - 桌面分配的通知 id
         @param action_key - 动作键（`default` / `open`）
@@ -418,6 +442,12 @@ class TrayApp:
             # 不是我们发的通知，或已被替换；忽略即可。
             return
         entry_id = self._notified_entry.pop(notification_id, "")
+        settings = self._consumer.tray_settings
+        if settings is not None and settings.banner_click == "panel":
+            # 「打开面板」模式：把这条标为已读，然后把面板叫出来让用户自己挑。
+            history.mark_read(entry_id)
+            self.toggle_panel()
+            return
         instance = self._lifecycle.instance
         handle_click(
             entry_id,

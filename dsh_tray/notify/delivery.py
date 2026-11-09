@@ -101,7 +101,12 @@ class PopupRegistry:
             self._ids.pop(next(iter(self._ids)))
 
 
-def build_gdbus_command(entry: Mapping[str, object], replaces_id: int = 0) -> list[str]:
+def build_gdbus_command(
+    entry: Mapping[str, object],
+    replaces_id: int = 0,
+    *,
+    with_actions: bool = True,
+) -> list[str]:
     """构造 `gdbus call` 命令。
 
     每个参数都带显式类型前缀，这是能调通的关键：
@@ -116,6 +121,11 @@ def build_gdbus_command(entry: Mapping[str, object], replaces_id: int = 0) -> li
 
     @param entry - 通知条目（dict 形态，字段名与 spool 一致）
     @param replaces_id - 顶替哪条弹窗；0 = 新建
+    @param with_actions - 是否声明 `default` 动作。
+        **Plasma 6.6.6 上必须传 False**：实测 actions 非空时通知被接受但不渲染在
+        任何位置（横幅、通知中心、全屏 OCR 都没有，见
+        research/linux-notification-actions.md 第五节）。代价是「点通知」不再触发，
+        交互只能走托盘。
     @returns 完整 argv
     """
     title = str(entry.get("title", ""))
@@ -135,7 +145,7 @@ def build_gdbus_command(entry: Mapping[str, object], replaces_id: int = 0) -> li
         "",
         title,
         body,
-        f"['{ACTION_KEY}', '{ACTION_LABEL}']",
+        f"['{ACTION_KEY}', '{ACTION_LABEL}']" if with_actions else "[]",
         "{}",
         f"int32 {timeout_for(entry)}",
     ]
@@ -197,6 +207,7 @@ def deliver_with_runner(
     has_gdbus: bool | None = None,
     has_notify_send: bool | None = None,
     replaces_id: int = 0,
+    with_actions: bool = True,
 ) -> DeliveryResult:
     """投递一条通知。
 
@@ -209,6 +220,7 @@ def deliver_with_runner(
     @param has_notify_send - 同上
     @param replaces_id - 顶替哪条弹窗；0 = 新建。回退到 notify-send 时不生效
         （libnotify 不支持顶替），届时会多出一条横幅而不是替换
+    @param with_actions - 是否声明动作按钮；KDE 上必须 False，否则整条通知不显示
     @returns 投递结果
     """
     run = runner or _default_runner
@@ -217,7 +229,9 @@ def deliver_with_runner(
 
     if gdbus_available:
         try:
-            code, stdout, stderr = run(build_gdbus_command(entry, replaces_id))
+            code, stdout, stderr = run(
+                build_gdbus_command(entry, replaces_id, with_actions=with_actions)
+            )
         except Exception as error:  # noqa: BLE001 - 投递失败不得中断调用方
             return DeliveryResult(False, reason=f"gdbus 调用异常：{error}")
         if code == 0:
@@ -238,11 +252,17 @@ def deliver_with_runner(
     return DeliveryResult(False, reason="系统既无 gdbus 也无 notify-send")
 
 
-def deliver(entry: Mapping[str, object], replaces_id: int = 0) -> DeliveryResult:
+def deliver(
+    entry: Mapping[str, object],
+    replaces_id: int = 0,
+    *,
+    with_actions: bool = True,
+) -> DeliveryResult:
     """投递一条通知（使用默认真实 runner）。
 
     @param entry - 通知条目
     @param replaces_id - 顶替哪条弹窗；0 = 新建
+    @param with_actions - 是否声明动作按钮；KDE 上必须 False
     @returns 投递结果
     """
-    return deliver_with_runner(entry, replaces_id=replaces_id)
+    return deliver_with_runner(entry, replaces_id=replaces_id, with_actions=with_actions)
