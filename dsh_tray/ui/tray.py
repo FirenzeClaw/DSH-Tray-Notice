@@ -36,6 +36,23 @@ from ..platform.linux import LinuxActionListener
 POLL_INTERVAL_MS = 2000
 
 
+def resolve_screen(geometry) -> object | None:
+    """按托盘图标中心反查它所在的屏幕。
+
+    `QSystemTrayIcon` 在 PyQt6 里没有 `screen()` 方法（曾因此让面板完全打不开：
+    左键与右键菜单两条路径都抛 AttributeError），只能由坐标反查。
+    Plasma Wayland 下 `geometry()` 恒为 0×0，`screenAt` 会返回主屏，行为可接受。
+
+    @param geometry - 托盘图标的 QRect
+    @returns 屏幕对象；无可用屏幕时 None
+    """
+    app = QApplication.instance()
+    if app is None:
+        return None
+    screen = app.screenAt(geometry.center())
+    return screen if screen is not None else app.primaryScreen()
+
+
 class _ActionRunner(QObject):
     """把一个阻塞的生命周期动作放到线程池里跑，结果回到主线程。"""
 
@@ -258,7 +275,7 @@ class TrayApp:
         anchor = LinuxWindowAnchor(margin=8)
         geometry = self._tray.geometry()
         tray_rect = (geometry.x(), geometry.y(), geometry.width(), geometry.height())
-        screen = self._tray.screen() or QApplication.primaryScreen()
+        screen = resolve_screen(geometry)
         x, y = anchor.anchor_for(tray_rect, screen)
         # 面板宽 378：贴右边时 x 会越界，往左挪回来。
         x = max(0, min(x, screen.availableGeometry().right() - PANEL_WIDTH + 1))

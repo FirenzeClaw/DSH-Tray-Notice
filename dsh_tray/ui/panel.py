@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Callable
 
 from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
@@ -27,6 +28,9 @@ from PyQt6.QtWidgets import (
 
 #: 面板宽度，与设计稿一致（378 px 是在 1366 宽屏上能贴住托盘又不遮内容的折中）。
 PANEL_WIDTH = 378
+
+#: 弹出后的焦点宽限期（秒）。期间收到 focusOut 不隐藏。
+SHOW_GRACE_SECONDS = 0.6
 
 #: 标签名。
 TAB_LABELS = ("未查看", "已查看", "工作中", "概览")
@@ -182,6 +186,8 @@ class Panel(QFrame):
         self.setObjectName("panel")
         self.setFixedWidth(PANEL_WIDTH)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        #: 早于此刻的失焦一律忽略，见 show_at / _hide_if_inactive。
+        self._ignore_focus_out_until = 0.0
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -269,6 +275,9 @@ class Panel(QFrame):
         self.move(QPoint(x, y))
         self.show()
         self.raise_()
+        # 宽限期：刚弹出时 Wayland 常会先给一次 focusOut（窗口还没拿到焦点），
+        # 这段时间内一律不据此隐藏，否则面板闪一下就没了。
+        self._ignore_focus_out_until = time.monotonic() + SHOW_GRACE_SECONDS
 
     def focusOutEvent(self, event) -> None:  # noqa: N802 - Qt 命名
         """失去焦点即隐藏：面板是临时浮层，不该常驻。
@@ -280,7 +289,15 @@ class Panel(QFrame):
         QTimer.singleShot(120, self._hide_if_inactive)
 
     def _hide_if_inactive(self) -> None:
-        """若仍无焦点则隐藏。"""
-        if not self.isActiveWindow() and self.isVisible():
-            self.hide()
-            self.closed.emit()
+        """若仍无焦点则隐藏。
+
+        Wayland 下 `Qt.Tool` 常常拿不到焦点，`isActiveWindow()` 恒为假。若无条件
+        据此隐藏，面板会在显示后约 120 ms 自己消失（表现为「点托盘没反应」）。
+        因此只在宽限期已过时才按失焦收起。
+        """
+        if time.monotonic() < self._ignore_focus_out_until:
+            return
+        if not self.isVisible() or self.isActiveWindow():
+            return
+        self.hide()
+        self.closed.emit()
