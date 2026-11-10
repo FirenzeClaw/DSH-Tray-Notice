@@ -24,14 +24,13 @@ from ..notify.sessionstate import SessionTable
 from .control import ControlArea
 from .notiflist import NotificationListPage, read_count, unread_count
 from .overview import OverviewPage
-from ..platform import create_sampler
-from ..platform.linux import LinuxWindowAnchor
+from ..platform import create_anchor, create_placement, create_sampler
 from .panel import PANEL_WIDTH, TAB_OVERVIEW, TAB_READ, TAB_UNREAD, TAB_WORKING, Panel
 from .working import WorkingPage
 from ..notify.consumer import Consumer
 from ..notify.delivery import DeliveryResult, PopupRegistry, deliver
 from ..notify.log import Logger, default_log_path
-from ..platform.linux import LinuxActionListener
+from ..platform import create_action_listener
 
 #: 探测外部启停的间隔。2 s 足够让手动启动在托盘上"很快"出现，
 #: 又不至于让 /proc 扫描变成可观测的负担。
@@ -151,7 +150,12 @@ class TrayApp:
         #: 桌面通知 id → 会话 id；点击回执只有通知 id，要据此反查会话。
         self._notified: dict[int, str] = {}
         self._notified_entry: dict[int, str] = {}
-        self._action_listener = LinuxActionListener(self._on_notification_action)
+        self._action_listener = create_action_listener(self._on_notification_action)
+        #: 面板定位能力；构造失败（非 Linux）时为 None，面板退回 move() 路径。
+        try:
+            self._placement: object | None = create_placement()
+        except NotImplementedError:
+            self._placement = None
 
         # 面板：左键打开。会话表由消费循环的快照喂养。
         self._session_table = SessionTable()
@@ -278,14 +282,16 @@ class TrayApp:
         if self._missed_total > 0:
             self._missed_total = 0
             self._refresh()
-        anchor = LinuxWindowAnchor(margin=8)
         geometry = self._tray.geometry()
         tray_rect = (geometry.x(), geometry.y(), geometry.width(), geometry.height())
         screen = resolve_screen(geometry)
+        anchor = create_anchor()
         x, y = anchor.anchor_for(tray_rect, screen)
         # 面板宽 378：贴右边时 x 会越界，往左挪回来。
         x = max(0, min(x, screen.availableGeometry().right() - PANEL_WIDTH + 1))
         panel.show_at(x, y)
+        # show() 之后才调：层外壳需要窗口已创建。
+        panel.apply_placement(self._placement)
 
     def _refresh_panel(self) -> None:
         """按当前历史与会话表刷新面板内容。"""

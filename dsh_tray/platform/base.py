@@ -60,6 +60,25 @@ class WindowAnchor(Protocol):
         """
 
 
+class PanelPlacement(Protocol):
+    """面板精确定位。
+
+    为什么要抽象：该合成器不接受客户端给的窗口位置——普通窗口 `move()` 不生效
+    （实测面板恒落在水平居中处）。要贴右上角只能走合成器的层外壳协议，而那是
+    Linux/Wayland 专有的，其它平台需要各自的实现。
+    """
+
+    def apply(self, widget: object, width: int, height: int, screen: object) -> bool:
+        """把面板锚到目标位置。
+
+        @param widget - 待定位的面板控件（需有 `windowHandle()`）
+        @param width - 面板逻辑宽
+        @param height - 面板逻辑高
+        @param screen - 有 `geometry()` 的屏幕对象
+        @returns 成功锚定返回 True；能力不可用返回 False，调用方退回既有路径
+        """
+
+
 class ProcessSample(Protocol):
     """一个进程的瞬时状态。"""
 

@@ -17,6 +17,7 @@ from .base import (
     URGENCY_LOW,
     URGENCY_NORMAL,
     NotificationBackend,
+    PanelPlacement,
     ProcessSample,
     ProcessSampler,
     WindowAnchor,
@@ -27,11 +28,15 @@ __all__ = [
     "URGENCY_LOW",
     "URGENCY_NORMAL",
     "NotificationBackend",
+    "PanelPlacement",
     "ProcessSample",
     "ProcessSampler",
     "WindowAnchor",
+    "create_action_listener",
     "create_backend",
     "create_anchor",
+    "create_display_scale",
+    "create_placement",
     "create_sampler",
     "current_platform",
 ]
@@ -103,3 +108,32 @@ def create_sampler() -> ProcessSampler:
 
         return LinuxProcessSampler()
     raise _unsupported("进程采样")
+
+
+def create_placement() -> PanelPlacement:
+    """创建当前平台的面板定位器。
+
+    @returns 定位器实例
+    @throws NotImplementedError - 当前平台未实现时
+    """
+    platform = current_platform()
+    if platform == "linux":
+        from .linux import LinuxPanelPlacement
+
+        return LinuxPanelPlacement()
+    raise _unsupported("面板定位")
+
+
+def create_action_listener(on_action: object) -> object:
+    """创建当前平台的通知点击监听器。
+
+    @param on_action - 回调：(通知 id, 动作键)
+    @returns 监听器实例
+    @throws NotImplementedError - 当前平台未实现时
+    """
+    platform = current_platform()
+    if platform == "linux":
+        from .linux import LinuxActionListener
+
+        return LinuxActionListener(on_action)  # type: ignore[arg-type]
+    raise _unsupported("通知点击监听")

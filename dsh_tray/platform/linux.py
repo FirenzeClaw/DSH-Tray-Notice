@@ -17,6 +17,7 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
+from . import layershell
 from ..probe import child_pids, read_cmdline
 from ..notify.delivery import DeliveryResult, deliver
 
@@ -139,6 +140,125 @@ class LinuxWindowAnchor:
 
         rect = screen.availableGeometry()
         return rect.right() - self._margin, rect.top() + self._margin
+
+
+class LinuxPanelPlacement:
+    """用层外壳协议把面板锚到屏幕右上角。
+
+    为什么需要它：该合成器不接受客户端给的窗口位置。同一份代码算出 `(1329, 8)`，
+    面板实际落在 `(664, 237)`——后者正是 `(1707-378)/2`，即水平居中。`move()` 与
+    `pos()` 都只是 Qt 自己的记录，不代表合成器的决定。
+
+    能力不可用（库缺失、符号缺失、非 Wayland、取不到 QWindow）时 `apply()` 返回
+    False，调用方退回既有路径。定位是体验优化，不该成为启动前提。
+    """
+
+    def __init__(self, right_margin: int = 8, top_margin: int = 8) -> None:
+        """构造。
+
+        @param right_margin - 面板右边缘与屏幕右边缘的间距
+        @param top_margin - 面板上边缘与屏幕顶部的间距
+        """
+        self.right_margin = right_margin
+        self.top_margin = top_margin
+        self._shell: object | None = None
+        self._loaded = False
+
+    def _load(self) -> object | None:
+        """惰性加载接口库，只尝试一次。"""
+        if not self._loaded:
+            self._shell = layershell.load()
+            self._loaded = True
+        return self._shell
+
+    def apply(self, widget: object, width: int, height: int, screen: object) -> bool:
+        """把控件锚到右上角。
+
+        前置检查只在 `_apply_native()` 里做一次——这里再查一遍会让「替身替换
+        `_apply_native`」的测试无法验证坐标计算，也属于重复校验。
+
+        @param widget - 面板控件，需有 `windowHandle()`
+        @param width - 面板逻辑宽
+        @param height - 面板逻辑高
+        @param screen - 有 `geometry()` 的屏幕对象
+        @returns 成功锚定 True；能力不可用 False
+        """
+        return self._apply_native(widget, width, height, screen)
+
+    def target_rect(self, geometry: object, width: int) -> tuple[int, int]:
+        """算面板左上角。
+
+        层外壳路径不需要绝对坐标（位置由锚边 + 边距表达），所以这个方法只被
+        **测试**用来验算锚定结果是否符合预期。公开是为让测试能直接调它，而不是
+        因为它有生产调用方。
+
+        右边缘对齐：`x = 屏幕左边 + 屏幕宽 - 面板宽 - 右边距`。下限钳到屏幕左边界，
+        否则面板比屏幕还宽时会跑到屏幕外看不见。
+
+        @param geometry - 屏幕矩形（有 left/top/width/height）
+        @param width - 面板逻辑宽
+        @returns (x, y)
+        """
+        left = int(geometry.left())
+        top = int(geometry.top())
+        screen_width = int(geometry.width())
+        x = left + screen_width - width - self.right_margin
+        x = max(left, x)
+        return x, top + self.top_margin
+
+    def _apply_native(self, widget: object, width: int, height: int, screen: object) -> bool:
+        """真正调用层外壳。所有前置检查集中在这里。
+
+        @param widget - 面板控件
+        @param width - 面板宽
+        @param height - 面板高
+        @param screen - 屏幕对象
+        @returns 成功 True
+        """
+        shell = self._load()
+        if shell is None:
+            return False
+        handle_getter = getattr(widget, "windowHandle", None)
+        if handle_getter is None:
+            return False
+        window = handle_getter()
+        if window is None:
+            return False
+        geometry_getter = getattr(screen, "geometry", None)
+        if geometry_getter is None:
+            return False
+        if geometry_getter() is None:
+            return False
+        pointer = _qwindow_pointer(window)
+        if not pointer:
+            return False
+        handle = shell.window_get(pointer)  # type: ignore[attr-defined]
+        if not handle:
+            return False
+        shell.set_anchors(handle, layershell.ANCHOR_TOP_RIGHT)  # type: ignore[attr-defined]
+        # 右锚时右边距决定面板右边缘离屏幕右边多远；左锚同理。
+        shell.set_margins(handle, 0, self.top_margin, self.right_margin, 0)  # type: ignore[attr-defined]
+        shell.set_desired_size(handle, width, height)  # type: ignore[attr-defined]
+        return True
+
+
+def _qwindow_pointer(window: object) -> int:
+    """取 QWindow 的 C++ 指针。
+
+    **不能用 `winId()`**：它返回原生窗口句柄，不是 `QWindow*`，传给
+    `Window::get()` 会得到空指针然后静默失败（实测）。
+
+    @param window - QWindow 实例
+    @returns 指针值；取不到时 0
+    """
+    try:
+        from PyQt6 import sip
+    except ImportError:
+        return 0
+    try:
+        return int(sip.unwrapinstance(window))
+    except (TypeError, ValueError):
+        return 0
 
 
 class LinuxProcessSampler:

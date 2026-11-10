@@ -354,6 +354,11 @@ class Panel(QFrame):
     def show_at(self, x: int, y: int) -> None:
         """在指定坐标显示。
 
+        **注意**：该合成器不接受客户端给的窗口位置——`move()` 只是记到 Qt 自己
+        的状态里，真实落点由合成器决定（实测恒为水平居中）。要精确放置得在
+        `show()` 之后调 `apply_placement()`；本方法的坐标只在层外壳不可用时
+        作为退路。
+
         @param x - 左上角 x
         @param y - 左上角 y
         """
@@ -363,6 +368,28 @@ class Panel(QFrame):
         # 宽限期：刚弹出时 Wayland 常会先给一次 focusOut（窗口还没拿到焦点），
         # 这段时间内一律不据此隐藏，否则面板闪一下就没了。
         self._ignore_focus_out_until = time.monotonic() + SHOW_GRACE_SECONDS
+
+    def apply_placement(self, placement: object | None) -> bool:
+        """用平台能力把面板锚到目标位置。
+
+        必须在 `show()` 之后调用：层外壳需要窗口已创建（`windowHandle()` 才非空）。
+
+        @param placement - 有 `apply(widget, width, height, screen)` 的对象；None 时跳过
+        @returns 成功锚定 True；能力不可用或未传 placement 时 False
+        """
+        if placement is None:
+            return False
+        apply = getattr(placement, "apply", None)
+        if apply is None:
+            return False
+        screen = self.screen()
+        if screen is None:
+            return False
+        try:
+            return bool(apply(self, self.width(), self.height(), screen))
+        except (RuntimeError, ValueError, OSError):
+            # 定位是体验优化：任何失败都不该让面板打不开。
+            return False
 
     # ------------------------------------------------------------- 圆角与拖拽
 
