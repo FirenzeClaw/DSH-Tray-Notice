@@ -15,48 +15,38 @@ QT_QPA_PLATFORM=offscreen python3 -m unittest discover -s dsh_tray/tests -t .
 ./dsh-tray.py --selftest
 ```
 
-**基线值**（改动前）：Python 224 / 插件 131 / 自检 10。
+**基线值**（改动前）：Python 224 / 插件 131 / 自检 10；**改动后** Python 259。
 
-## 1. 缩放校正（SC-001）
+## 1. 缩放（SC-001）— 已达成，无需改动
 
-**自动**：单测覆盖换算与钳制。
+**结论**：基线渲染已是 1.5×。三处独立实测（真实面板 1.49、探针窗口 1.50、屏幕整体 1.50）
+互相印证。**不要在启动脚本里设 `QT_SCALE_FACTOR`**——实测会让渲染变成 2.25×。
+
+回归工具（将来若怀疑有偏差时用它一测）：
 ```bash
-QT_QPA_PLATFORM=offscreen python3 -m unittest dsh_tray.tests.test_scaling -v
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus QT_QPA_PLATFORM=wayland \
+  python3 scripts/probe-scale.py --out /tmp/scale.png --expect 1.5
+```
+退出码 0 = 一致、1 = 不一致、2 = 环境不满足。
+
+## 2. 面板定位（SC-002）— 已验证通过
+
+`kwin-mcp` 在本机常返回 `Connection closed`，故用截图法：起一个已知尺寸与颜色的
+探针窗口，锚 `Top|Right`，截图后数像素。
+
+```bash
+# 探针：200×120 纯绿窗口，layershell 锚右上角，保持 12 秒
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+QT_QPA_PLATFORM=wayland PYTHONPATH="$PWD" python3 /tmp/probe-hold.py &
+sleep 5
+spectacle -b -n -f -o /tmp/hold.png
+# 用 PIL 数绿色范围，除以 1.5 得逻辑坐标
 ```
 
-**人工**（唯一能证明「真的按 1.5 渲染」的方法）：
+**实测结果**：绿色窗口物理范围 `x 2250–2547` → 逻辑 `x = 1500`。
+期望 `1707 - 200 - 8 = 1499`。**偏差 1 像素，通过。**
 
-1. 启动托盘（必须在 DSH 作用域外，否则被守卫拒绝）：
-   ```bash
-   systemd-run --user --scope --unit=dsh-tray-check ./scripts/dsh-tray.sh
-   ```
-2. 用探针画一个 100 逻辑像素宽的纯色块（`QPainter.fillRect(QRect(0,0,100,40))`）。
-3. 截图并量物理像素：
-   ```bash
-   python3 - <<'PY'
-   from PIL import Image
-   im = Image.open("/tmp/probe.png").convert("RGB")
-   # 找纯色块的边界（改为你的颜色）
-   ys = [y for y in range(im.height) if im.getpixel((im.width//2, y)) == (255,0,255)]
-   print("物理高度:", len(ys))
-   PY
-   ```
-4. **判定**：物理宽度应为 **150 ± 1**。若为 200，说明校正未生效（仍在按 2× 渲染）。
-
-## 2. 面板定位（SC-002）
-
-**人工**（`move()` 的返回值不可信，必须读合成器）：
-
-1. 点击托盘图标打开面板。
-2. 读实际窗口位置：
-   ```bash
-   # 用 kwin-mcp
-   mcp__kwin-mcp__window_geometry({"app_name": "dsh-tray"})
-   ```
-3. **判定**：
-   - x 应接近 `屏幕逻辑宽 - 378 - 8`。本机逻辑宽 1707 → 期望 x ≈ **1321**
-   - **不通过的特征**：x ≈ 664（恰好居中，说明仍走旧路径）
-   - y 应 ≈ 8～40（避开顶部面板）
+**失败特征**：逻辑 x ≈ 664 —— 那正是 `(1707-378)/2`，说明仍在走 `move()` 旧路径。
 
 **降级验证**（SC-005）：
 
@@ -75,15 +65,20 @@ sudo mv /usr/lib/x86_64-linux-gnu/libLayerShellQtInterface.so.6{.bak,}
 1. 打开面板，点击标题栏右上角关闭按钮。
 2. **判定**：面板消失，托盘图标仍在，`ps` 能看到托盘进程存活。
 
-## 4. 顶栏 / 底栏（SC-004）
+## 4. 标题行 / 底栏（SC-004）— 已验证通过
 
 **自动**：断言 `status_text()` 与 `detail_text()` 的三种状态文案。
 
-**人工**：打开面板，OCR 底部一行：
+**人工**：打开面板，全屏 OCR：
 ```bash
-tesseract /tmp/panel.png stdout -l chi_sim+eng --psm 6 | tail -3
+tesseract /tmp/panel.png stdout -l chi_sim+eng --psm 11 | grep -E "DSH|PID|端口"
 ```
-**判定**：能看到 `PID <数字>`、`端口 3080`、`由托盘启动`/`外部启动`、`带令牌`/`无令牌` 四项，且**不换行截断**。
+**实测读到**（2026-11-10）：
+```
+DSH 运行中
+PID 4512 - 端口 3080 - 由托盘启动 . 带令牌
+```
+四项齐全，**未换行截断**。
 
 ## 5. 回归
 
@@ -97,4 +92,4 @@ tesseract /tmp/panel.png stdout -l chi_sim+eng --psm 6 | tail -3
 
 - 托盘图标坐标不可得 → 面板锚屏幕右上角；把 Plasma 面板移到底部后不再贴近图标。
 - 多显示器下出现在主屏右上角，不是图标所在屏。
-- 改变缩放需重启托盘才生效（`QT_SCALE_FACTOR` 只在启动时读）。
+- **不要设 `QT_SCALE_FACTOR`**：实测基线已是 1.5×，设了会让元素放大到 2.25×。

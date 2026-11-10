@@ -14,12 +14,21 @@
 <!-- SPECKIT START -->
 ## 当前规格
 
-- 规格：`specs/001-notify-console/spec.md`（托盘通知控制台，S1 通知管线 + S2 面板）
-- 实现计划：`specs/001-notify-console/plan.md`（6 个垂直切片 V1–V6，3 个检查点）
-- 设计制品：`research.md`（实测探针与选型）/ `data-model.md`（跨进程数据形状）/
-  `contracts/contracts.md`（spool、插件接线、平台后端、深链）/ `quickstart.md`
-- 交互基准：`design/notification-panel.html`（实现对照它验收）
+**002 面板视觉与定位修正**（实现完成，待收尾）
+- 规格：`specs/002-panel-visual-polish/spec.md`（3 故事 / 16 FR / 6 SC；缩放故事已撤回）
+- 实现计划：`specs/002-panel-visual-polish/plan.md`（4 垂直切片，3 检查点）
+- 设计制品：`research.md`（定位实测 + 缩放撤回依据）/ `quickstart.md`（验收步骤）
+- **实测结论**：定位已验证（x=1500，期望 1499）；**不要设 `QT_SCALE_FACTOR`**（基线已是 1.5×）
+
+**001 托盘通知控制台**（已交付）
+- 规格：`specs/001-notify-console/spec.md`（S1 通知管线 + S2 面板）
+- 实现计划：`specs/001-notify-console/plan.md`（6 个垂直切片 V1–V6）
+- 设计制品：`research.md` / `data-model.md` / `contracts/contracts.md` / `quickstart.md`
+- 交互基准：`design/notification-panel.html`
 - 多平台底座（S3）尚未立规格
+
+**平台能力现状**：Linux 可用（通知投递 / 面板锚点 / 进程采样 / 面板定位 / 点击监听）；
+Windows / macOS 未实现（详见 `dsh_tray/platform/__init__.py`）。
 <!-- SPECKIT END -->
 
 <!-- AUTO:STRUCTURE -->
