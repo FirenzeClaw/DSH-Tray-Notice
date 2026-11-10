@@ -162,13 +162,17 @@ class LinuxPanelPlacement:
         self.right_margin = right_margin
         self.top_margin = top_margin
         self._shell: object | None = None
-        self._loaded = False
 
     def _load(self) -> object | None:
-        """惰性加载接口库，只尝试一次。"""
-        if not self._loaded:
+        """惰性加载接口库。
+
+        成功后缓存；**失败不缓存**，下次调用会重试。理由：占用中的库文件在
+        升级期可能短暂不可 `dlopen`（包管理器替换 `.so` 的瞬间），永久缓存
+        `None` 会让托盘在重启前一直失去定位能力。重试成本只是几次 `dlopen`，
+        而 `apply()` 本来就只在打开面板时调用。
+        """
+        if self._shell is None:
             self._shell = layershell.load()
-            self._loaded = True
         return self._shell
 
     def apply(self, widget: object, width: int, height: int, screen: object) -> bool:

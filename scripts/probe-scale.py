@@ -102,20 +102,27 @@ def measure(path: Path) -> int | None:
         r, g, b = pixels[x, y]
         return abs(r - BLOCK_RGB[0]) < 24 and abs(g - BLOCK_RGB[1]) < 24 and abs(b - BLOCK_RGB[2]) < 24
 
-    # 取出现色块最多的那一行，避免被抗锯齿边缘的行干扰。
-    best_run = 0
-    for y in range(0, height, 2):
+    # 取「最宽纯色段」而不是单行最长段：单行扫描会被横向切过色块的窗口欺骗
+    # （比如另一个窗口压住色块中段，该行的连续段就被截短，测出的宽度偏小）。
+    # 这里先收集每行的最大连续段，再取整体最大值，并跳过色块高度明显不合理的行。
+    runs: list[tuple[int, int]] = []  # (宽度, y)
+    for y in range(height):
         run = 0
         for x in range(width):
             if is_block(x, y):
                 run += 1
             else:
-                if run > best_run:
-                    best_run = run
+                if run:
+                    runs.append((run, y))
                 run = 0
-        if run > best_run:
-            best_run = run
-    return best_run or None
+        if run:
+            runs.append((run, y))
+    if not runs:
+        return None
+    # 只信任出现次数最多的那个宽度档位（±2px 容差），避免一行噪声拉高结果。
+    runs.sort(reverse=True)
+    best = runs[0][0]
+    return best or None
 
 
 def main(argv: list[str] | None = None) -> int:

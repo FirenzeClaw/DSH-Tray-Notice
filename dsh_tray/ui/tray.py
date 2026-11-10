@@ -289,9 +289,10 @@ class TrayApp:
         x, y = anchor.anchor_for(tray_rect, screen)
         # 面板宽 378：贴右边时 x 会越界，往左挪回来。
         x = max(0, min(x, screen.availableGeometry().right() - PANEL_WIDTH + 1))
-        panel.show_at(x, y)
-        # show() 之后才调：层外壳需要窗口已创建。
+        # 顺序关键：先在 show() 之前配好层外壳，再显示。
+        # 反过来（先 show 再配）不会报错，apply() 还返回 True，但面板不可见。
         panel.apply_placement(self._placement)
+        panel.show_at(x, y)
 
     def _refresh_panel(self) -> None:
         """按当前历史与会话表刷新面板内容。"""

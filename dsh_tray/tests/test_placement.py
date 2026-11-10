@@ -150,3 +150,110 @@ class PlacementFallbackTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProductionOrderTest(unittest.TestCase):
+    """生产路径的顺序契约。
+
+    这组测试的存在理由：上面那个缺陷（层外壳在 show() 之后配置）**绕过了全部
+    259 条测试**。`apply()` 返回 True、`isVisible()` 也是 True，只有真机截图才
+    看得出来面板根本没画出来。所以这里断言的是「可观测的行为契约」，不是内部调用：
+
+    - `apply_placement()` 必须在 `show()` 之前被调用（它自己负责强制创建 QWindow）
+    - 调用后窗口的原生句柄必须已存在，否则层外壳拿不到 handle
+    """
+
+    def setUp(self) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        self.app = QApplication.instance() or QApplication([])
+        from dsh_tray.ui.panel import Panel
+
+        self.panel = Panel()
+
+    def tearDown(self) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        self.panel.deleteLater()
+        QApplication.processEvents()
+
+    def test_window_handle_ready_when_apply_is_called(self) -> None:
+        """`apply()` 被调用时 `windowHandle()` 必须已可用。
+
+        这是层外壳的硬前提：`LayerShellQt::Window::get()` 需要一个真实的 QWindow
+        指针，否则返回空句柄、后面所有配置静默无效。
+
+        为什么这样断言：不能直接断言 `winId() != 0`——`winId()` 自己就会创建
+        原生窗口，那样测试会自我满足、永远通过。必须在替身的 `apply()` 里
+        **当场**观察 `windowHandle()`。
+        """
+        from dsh_tray.ui.panel import Panel
+
+        observed: list[bool] = []
+
+        class ProbePlacement:
+            """在 apply() 内部记录 windowHandle 是否已存在。"""
+
+            def apply(self, widget, width, height, screen):
+                observed.append(widget.windowHandle() is not None)
+                return True
+
+        panel = Panel()
+        try:
+            self.assertFalse(panel.isVisible())
+            ok = panel.apply_placement(ProbePlacement())
+            self.assertTrue(ok)
+            self.assertEqual(observed, [True], "apply() 时 windowHandle 必须已存在")
+            self.assertFalse(panel.isVisible(), "apply_placement 不应自己 show()")
+        finally:
+            panel.deleteLater()
+
+    def test_apply_before_show_is_the_documented_order(self) -> None:
+        """文档字符串必须说明正确顺序，否则下一个人会照旧写错。"""
+        from dsh_tray.ui.panel import Panel
+
+        doc = Panel.apply_placement.__doc__ or ""
+        self.assertIn("show()", doc)
+        self.assertIn("之前", doc)
+
+    def test_returns_false_without_placement(self) -> None:
+        self.assertFalse(self.panel.apply_placement(None))
+
+
+class LoadRetryTest(unittest.TestCase):
+    """库加载失败后必须能重试。
+
+    为什么需要：包管理器替换 `.so` 的瞬间 `dlopen` 可能失败。若把失败结果永久
+    缓存，托盘要在重启后才能恢复定位能力——而定位失败是静默的，用户只会觉得
+    「面板又跑到中间了」。
+    """
+
+    def test_retries_after_load_failure(self) -> None:
+        from unittest.mock import patch
+
+        from dsh_tray.platform import layershell
+        from dsh_tray.platform.linux import LinuxPanelPlacement
+
+        placement = LinuxPanelPlacement()
+        with patch.object(layershell, "load", return_value=None) as first:
+            self.assertIsNone(placement._load())
+            self.assertEqual(first.call_count, 1)
+
+        # 第二次：库恢复可用，必须重新尝试而不是返回缓存的 None
+        sentinel = object()
+        with patch.object(layershell, "load", return_value=sentinel) as second:
+            self.assertIs(placement._load(), sentinel)
+            self.assertEqual(second.call_count, 1)
+
+    def test_caches_after_success(self) -> None:
+        from unittest.mock import patch
+
+        from dsh_tray.platform import layershell
+        from dsh_tray.platform.linux import LinuxPanelPlacement
+
+        placement = LinuxPanelPlacement()
+        sentinel = object()
+        with patch.object(layershell, "load", return_value=sentinel) as loader:
+            self.assertIs(placement._load(), sentinel)
+            self.assertIs(placement._load(), sentinel)
+            self.assertEqual(loader.call_count, 1, "成功后不该重复加载")

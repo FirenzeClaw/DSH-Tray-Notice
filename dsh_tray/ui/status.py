@@ -51,7 +51,12 @@ def detail_text(state: State, instance: Instance | None, error: str, port: int) 
     @param port - 端口
     @returns 一行细节文本；无内容可显示时为空串
     """
-    if state is State.RUNNING and instance is not None:
+    if state is State.RUNNING:
+        if instance is None:
+            # RUNNING 但拿不到实例：这是「状态已到运行、实例信息还没读到」的
+            # 短暂窗口，以及状态与实例不同步的异常情况。不能落到下面的「空闲」
+            # 分支——那会和标题行的「运行中」直接矛盾（FR-016）。
+            return f"端口 {port} · 实例信息暂不可用"
         parts = [f"PID {instance.pid}", f"端口 {instance.port}"]
         parts.append("由托盘启动" if instance.owned else "外部启动")
         parts.append("带令牌" if instance.has_token else "无令牌")

@@ -424,9 +424,9 @@ class Panel(QFrame):
         """在指定坐标显示。
 
         **注意**：该合成器不接受客户端给的窗口位置——`move()` 只是记到 Qt 自己
-        的状态里，真实落点由合成器决定（实测恒为水平居中）。要精确放置得在
-        `show()` 之后调 `apply_placement()`；本方法的坐标只在层外壳不可用时
-        作为退路。
+        的状态里，真实落点由合成器决定（实测恒为水平居中）。要精确放置得在调用
+        本方法**之前**用 `apply_placement()` 配好层外壳；本方法的坐标只在层外壳
+        不可用时作为退路。
 
         @param x - 左上角 x
         @param y - 左上角 y
@@ -441,7 +441,14 @@ class Panel(QFrame):
     def apply_placement(self, placement: object | None) -> bool:
         """用平台能力把面板锚到目标位置。
 
-        必须在 `show()` 之后调用：层外壳需要窗口已创建（`windowHandle()` 才非空）。
+        **必须在 `show()` 之前调用。** 这不是风格偏好——实测在 `show()` 之后调
+        会得到 `already has a shell integration. Call QWindow::close() first and
+        show it again.`，随后 `is not a wayland window. Not creating
+        zwlr_layer_surface`，而且 **`apply()` 仍然返回 True，面板却不可见**。
+        也就是说这个顺序错了不会报错，只会静默失效。
+
+        层外壳需要 QWindow 已存在，所以本方法先 `winId()` 强制创建原生窗口
+        （不 `show()`），配置好锚边与边距后再由调用方 `show()`。
 
         @param placement - 有 `apply(widget, width, height, screen)` 的对象；None 时跳过
         @returns 成功锚定 True；能力不可用或未传 placement 时 False
@@ -454,6 +461,8 @@ class Panel(QFrame):
         screen = self.screen()
         if screen is None:
             return False
+        # 强制创建 QWindow 才能让 LayerShellQt::Window::get() 拿到句柄。
+        self.winId()
         try:
             return bool(apply(self, self.width(), self.height(), screen))
         except (RuntimeError, ValueError, OSError):

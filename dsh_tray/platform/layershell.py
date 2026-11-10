@@ -20,6 +20,13 @@
 2. **Anchor 枚举是 Qt 风格，不是 freedesktop 风格**。实测 `Top=1 Bottom=2
    Left=4 Right=8`；我曾按 freedesktop 的 `Left=1 Right=2 Top=4 Bottom=8` 推出
    「右上角 = 6」，结果窗口出现在**左下角**。右上角是 `Top|Right` = **9**。
+
+## 关于 `Shell::useLayerShell()`
+
+本模块**不调用**它。实测四种组合（调/不调 × 配置在 `show()` 前/后）里，决定
+成败的是**配置时机**而不是它——只要在 `show()` 之前配好锚边与边距就能正确定位，
+调不调 `useLayerShell()` 结果相同（都是逻辑 x=1500）。既然不影响结果，就不写
+这行——少一个必须在 `QApplication` 创建前执行的隐藏前提。
 """
 
 from __future__ import annotations
@@ -41,7 +48,6 @@ _SYM_WINDOW_GET = "_ZN12LayerShellQt6Window3getEP7QWindow"
 _SYM_SET_ANCHORS = "_ZN12LayerShellQt6Window10setAnchorsE6QFlagsINS0_6AnchorEE"
 _SYM_SET_MARGINS = "_ZN12LayerShellQt6Window10setMarginsERK8QMargins"
 _SYM_SET_DESIRED_SIZE = "_ZN12LayerShellQt6Window14setDesiredSizeERK5QSize"
-_SYM_USE_LAYER_SHELL = "_ZN12LayerShellQt5Shell13useLayerShellEv"
 
 
 class QSize(ctypes.Structure):
@@ -80,9 +86,6 @@ class LayerShell:
         self._set_desired_size = self._bind(
             _SYM_SET_DESIRED_SIZE, None, [ctypes.c_void_p, ctypes.POINTER(QSize)]
         )
-        # 这个不是可选的：不调它，Qt 仍按普通 xdg-shell 建窗口，
-        # 前面设的 anchors/margins 全都不起作用（窗口照旧被合成器放到中央）。
-        self._use_layer_shell = self._bind(_SYM_USE_LAYER_SHELL, None, [])
 
     def _bind(self, symbol: str, restype, argtypes):  # noqa: ANN001 - ctypes 类型
         """取符号并固定签名。
@@ -99,14 +102,6 @@ class LayerShell:
         func.restype = restype
         func.argtypes = argtypes
         return func
-
-    def use_layer_shell(self) -> None:
-        """启用层外壳集成。
-
-        **必须在创建窗口之前调用**。实测：不调它时 anchors 与 margins 设置了也
-        不生效，窗口仍被合成器放到水平居中处。
-        """
-        self._use_layer_shell()
 
     def window_get(self, qwindow: int) -> int:
         """`LayerShellQt::Window::get(QWindow*)`。

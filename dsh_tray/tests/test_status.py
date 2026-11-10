@@ -104,6 +104,16 @@ class DetailTextTest(unittest.TestCase):
         for state in (State.STOPPED, State.STARTING, State.RUNNING, State.STOPPING, State.FAILED):
             self.assertTrue(detail_text(state, None, "", 3080), f"{state} 的底栏为空")
 
+    def test_running_without_instance_is_not_idle(self) -> None:
+        """RUNNING 但实例缺失时，底栏不能显示「空闲」——那与标题行矛盾。
+
+        这条覆盖 FR-016 的反面：两处结论必须一致。曾出现 RUNNING+None 落到
+        else 分支显示「端口 3080 · 空闲」，而标题行同时显示「DSH 运行中」。
+        """
+        text = detail_text(State.RUNNING, None, "", 3080)
+        self.assertNotIn("空闲", text)
+        self.assertIn("3080", text)
+
     def test_uses_instance_port_not_argument(self) -> None:
         """运行中时端口取实例自己的，避免显示与实际服务不一致。"""
         text = detail_text(State.RUNNING, make_instance(port=3999), "", 3080)
