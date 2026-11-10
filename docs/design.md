@@ -89,6 +89,14 @@ DSH 晚启动、早退出、被杀重启——文件让两侧完全解耦，托�
 | 托盘若在该 scope 内启动，scope 拆除时会被 SIGTERM+SIGKILL 连带杀掉 | 实测事故：托盘随一次 DSH 重启消失 |
 | `systemd-run --user --scope` 下 `Popen.pid` 与命令自身 pid 一致，stdout 多一行 banner | 实测 |
 | 父进程被 SIGKILL 后，独立 scope 内的子进程仍存活 | 实测 |
+| 合成器**忽略客户端给的窗口位置**：算出 `(1329, 8)`，实际落在 `(664, 237)` | 实测；`664 = (1707-378)/2` |
+| `move()` 与 `pos()` 只反映 Qt 自身记录，不代表真实落点 | 实测（曾据此误判「定位成功」） |
+| `zwlr_layer_shell_v1` v5 可用；`libLayerShellQtInterface.so.6` 导出 `Window::get/setAnchors/setMargins/setDesiredSize` | `wayland-info`、`nm -D` |
+| Anchor 枚举是 **Qt 风格** `Top=1 Bottom=2 Left=4 Right=8`，右上角 = **9** | 实测（按 freedesktop 猜 6 会落到左下角） |
+| `setDesiredSize(const QSize&)` 按引用传；按值传 `(int,int)` **段错误** | 实测（`unittest` 退出码 139） |
+| 层外壳必须在 `show()` 之前配置，否则报 `already has a shell integration` 且定位无声失效 | 实测 |
+| 屏幕真实缩放 **1.5**（物理 2560 / 逻辑 1707）；Qt 报 `devicePixelRatio=2.0` 只是缓冲区倍率 | 三处独立测量：真实面板 1.49、探针 1.50、屏幕 1.50 |
+| 设 `QT_SCALE_FACTOR=1.5` 后 100 逻辑像素色块变 225 物理像素（2.25×） | 实测，故不做缩放校正 |
 
 **承重结论**：令牌是进程级的，所以**只有自己拉起的实例才拿得到带令牌的 URL**。接管来的实例只能打开裸 URL，依赖浏览器里已有的 cookie（`cookieMaxAgeDays` 默认 30 天）。这个区别必须显式呈现给用户，否则用户会对着 401 猜。
 

@@ -190,16 +190,19 @@
 
 ## Phase 6: Polish & 收尾
 
-- [ ] T017 [P] 真机验收：降级路径（SC-005）
-  - [ ] 临时改名 `/usr/lib/x86_64-linux-gnu/libLayerShellQtInterface.so.6` 后重启托盘
-  - [ ] 面板仍能打开与关闭，`~/.local/state/dsh-tray/tray.log` 无异常栈
-  - [ ] 恢复库文件后确认恢复正常定位
+- [x] T017 [P] 真机验收：降级路径（SC-005）— **已验证**
+  - [x] 不改系统文件（需 sudo）：用 `LD_LIBRARY_PATH=/tmp/fake-lib` 放一个损坏的同名库，
+        让 `dlopen` 失败，模拟「库不可用」
+  - [x] `layershell.load()` → `None`；`apply()` → `False`；无异常抛出
+  - [x] 面板仍能 `show_at()` 显示、`close_button.click()` 关闭
+  - [x] 恢复：unset `LD_LIBRARY_PATH` 后 `load()` 正常返回实例
 
-- [ ] T018 更新 `docs/design.md` 与 `README.md` 的已知限制
-  - [ ] 写明 `dsh_tray/platform/linux.py` 拿不到托盘图标坐标 → 锚屏幕右上角
-  - [ ] 写明多显示器下在主屏右上角（`apply_placement()` 用 `self.screen()`，降级路径用 `resolve_screen()`）
-  - [ ] 写明 **不要设 `QT_SCALE_FACTOR`**——实测基线已是 1.5×，设了会变 2.25×
-  - [ ] 保留 `scripts/probe-scale.py` 作为回归工具，说明用法
+- [x] T018 更新 `docs/design.md` 与 `README.md` 的已知限制
+  - [x] README 面板一节补标题行 / 底栏 / 关闭按钮的说明，新增「面板位置」小节与三条已知限制
+  - [x] design.md 环境事实表补 7 条实测（窗口位置被忽略、Anchor 枚举、QSize 按引用、
+        层外壳时机、真实缩放 1.5、设 QT_SCALE_FACTOR 反而错）
+  - [x] 写明 **不要设 `QT_SCALE_FACTOR`** 及其依据
+  - [x] `scripts/probe-scale.py` 已保留并在 README 指明用法
 
 - [x] T019 跑三条基线并记录
   - [x] Python：**259 passed**（基线 224 + 新增 35）
