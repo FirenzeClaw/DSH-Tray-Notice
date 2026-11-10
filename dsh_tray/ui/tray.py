@@ -220,6 +220,15 @@ class TrayApp:
         self._action_restart.setVisible(running or transitioning)
         self._action_start.setVisible(not running and not transitioning)
 
+        # 面板开着时同步刷新。否则用户在面板里点「启动」，面板上的状态会一直
+        # 停在「未运行」，直到关掉再打开——那比不显示更糟，因为它是一句假话。
+        # 只刷新状态文案，不重建列表页：列表由各自的定时器按 2 秒节奏更新。
+        if self._panel is not None and self._panel.isVisible():
+            self._panel.set_status(
+                state, instance, error, self._lifecycle.port
+            )
+            self._control.render(state, instance, error, busy=self._busy)
+
     def _tooltip(self, state: State, instance: Instance | None, error: str) -> str:
         """tooltip 要能独立回答「现在什么状态、谁起的、为什么失败」。"""
         if state is State.RUNNING and instance is not None:

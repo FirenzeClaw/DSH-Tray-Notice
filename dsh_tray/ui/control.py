@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ..lifecycle import Instance, State
+from .status import status_text
 
 #: 主操作按钮的文案（按状态）。
 PRIMARY_LABEL = {
@@ -133,21 +134,22 @@ class ControlArea(QFrame):
         )
 
         owned = instance is not None and instance.owned
+        # 状态短语统一来自 status.py：面板标题行、底栏、这里三处读同一个来源，
+        # 否则 RUNNING+instance=None 时这里会落进 else 显示「DSH 未运行」，
+        # 而标题行显示「DSH 运行中」。
+        self._name.setText(status_text(state))
         if state is State.RUNNING and instance is not None:
-            self._name.setText("DSH 运行中")
             origin = "由托盘启动" if owned else f"外部启动 PID {instance.pid}"
             self._meta.setText(f"127.0.0.1:{instance.port} · {origin}")
+        elif state is State.RUNNING:
+            self._meta.setText("实例信息暂不可用")
         elif state is State.STARTING:
-            self._name.setText("DSH 正在启动…")
             self._meta.setText("冷启动通常需要十几秒")
         elif state is State.STOPPING:
-            self._name.setText("DSH 正在停止…")
             self._meta.setText("正在结束会话与子进程")
         elif state is State.FAILED:
-            self._name.setText("DSH 启动失败")
             self._meta.setText(error or "未知原因")
         else:
-            self._name.setText("DSH 未运行")
             self._meta.setText("")
 
         # 接管态：提示拿不到令牌。这条提示只在真的会影响用户时出现。

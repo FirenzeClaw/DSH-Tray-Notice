@@ -223,10 +223,9 @@ ui/status.py::status_text / detail_text (纯函数，无依赖)
   `(c_int, c_int)` 按值传，C++ 侧把两个整数当指针解引用，**直接段错误**
   （`unittest` 退出码 139）。这是本特性唯一一次进程级崩溃。
 
-**配置时机（两个都必须遵守）**：
+**配置时机（必须遵守）**：
 
-1. `Shell::useLayerShell()` 是进程级设置，必须在 `QApplication` 创建**之前**调用。
-2. `Window::get()` + `setAnchors` + `setMargins` 必须在 `show()` **之前**做。
+`Window::get()` + `setAnchors` + `setMargins` 必须在 `show()` **之前**做。
    写成 `show()` 之后调用时，日志报
    `already has a shell integration. Call QWindow::close() first and show it again.`
    随后 `is not a wayland window. Not creating zwlr_layer_surface`——定位无声失效。

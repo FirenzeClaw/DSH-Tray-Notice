@@ -1,6 +1,6 @@
 """状态文案测试：标题行与底栏的分工。
 
-覆盖 FR-015~FR-019 与 SC-004。这些是纯函数，不需要 QApplication——刻意保持
+覆盖 FR-012~FR-016 与 SC-004。这些是纯函数，不需要 QApplication——刻意保持
 如此，让「文案对不对」的验证不依赖界面能否起来。
 """
 
@@ -67,7 +67,7 @@ class DetailTextTest(unittest.TestCase):
         self.assertIn("带令牌", text)
 
     def test_running_adopted_marks_external(self) -> None:
-        """FR-018：接管态的令牌失权要能一眼看出。"""
+        """FR-015：接管态的令牌失权要能一眼看出。"""
         text = detail_text(State.RUNNING, make_instance(owned=False, has_token=False), "", 3080)
         self.assertIn("外部启动", text)
         self.assertIn("无令牌", text)
@@ -80,7 +80,7 @@ class DetailTextTest(unittest.TestCase):
         self.assertNotEqual(owned, adopted)
 
     def test_stopped_has_no_pid(self) -> None:
-        """FR-017：未运行时不显示 PID。"""
+        """FR-014：未运行时不显示 PID。"""
         text = detail_text(State.STOPPED, None, "", 3080)
         self.assertNotIn("PID", text)
         self.assertIn("3080", text)

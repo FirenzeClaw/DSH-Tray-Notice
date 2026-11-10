@@ -210,6 +210,20 @@ class LinuxPanelPlacement:
         x = max(left, x)
         return x, top + self.top_margin
 
+    @staticmethod
+    def _is_wayland() -> bool:
+        """当前 Qt 平台插件是否是 Wayland。
+
+        `Window::get()` 只做 QHash 查找 + 懒构造，与平台无关——非 Wayland 下
+        照样返回非空句柄，于是 `apply()` 会报成功，而合成器根本不会创建
+        `zwlr_layer_surface`（stderr 会写 `is not a wayland window`）。
+        实测 xcb / offscreen / minimal 三种平台下都返回 True，是「静默失效」的
+        第二个来源。所以这里显式挡住。
+        """
+        from PyQt6.QtGui import QGuiApplication
+
+        return QGuiApplication.platformName() == "wayland"
+
     def _apply_native(self, widget: object, width: int, height: int, screen: object) -> bool:
         """真正调用层外壳。所有前置检查集中在这里。
 
@@ -219,6 +233,8 @@ class LinuxPanelPlacement:
         @param screen - 屏幕对象
         @returns 成功 True
         """
+        if not self._is_wayland():
+            return False
         shell = self._load()
         if shell is None:
             return False

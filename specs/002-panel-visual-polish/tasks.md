@@ -95,7 +95,7 @@
   - [x] 常量 `ANCHOR_TOP = 1`、`ANCHOR_RIGHT = 8`、`ANCHOR_TOP_RIGHT = 9`（**Qt 风格，非 freedesktop**；注释写明曾按 6 猜错落到左下角）
   - [x] `QMargins` 与 `QSize` 用 `ctypes.Structure`
   - [x] `load() -> LayerShell | None`：`OSError` 或符号缺失均返回 `None`
-  - [x] `use_layer_shell()`：符号 `_ZN12LayerShellQt5Shell13useLayerShellEv`，注释写明必须在 `QApplication` 创建前调用
+  - [x] ~~`use_layer_shell()`~~ 已删除：四路矩阵实验证明它不影响结果，留着只会多一个隐藏前提
   - [x] `window_get()` / `set_anchors()` / `set_margins()` / `set_desired_size()`
   - [x] **`setDesiredSize` 必须传 `QSize*`**（`const QSize&`），按值传 `(c_int, c_int)` 会段错误
   - [x] T006 的降级测试通过

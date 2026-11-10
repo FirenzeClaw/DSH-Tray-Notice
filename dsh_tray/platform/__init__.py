@@ -35,7 +35,6 @@ __all__ = [
     "create_action_listener",
     "create_backend",
     "create_anchor",
-    "create_display_scale",
     "create_placement",
     "create_sampler",
     "current_platform",

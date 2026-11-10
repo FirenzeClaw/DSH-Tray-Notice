@@ -148,10 +148,6 @@ class PlacementFallbackTest(unittest.TestCase):
         self.assertFalse(placement.apply(object(), PANEL_WIDTH, 600, FakeScreen()))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class ProductionOrderTest(unittest.TestCase):
     """生产路径的顺序契约。
 
@@ -208,13 +204,55 @@ class ProductionOrderTest(unittest.TestCase):
         finally:
             panel.deleteLater()
 
-    def test_apply_before_show_is_the_documented_order(self) -> None:
-        """文档字符串必须说明正确顺序，否则下一个人会照旧写错。"""
-        from dsh_tray.ui.panel import Panel
+    def test_toggle_panel_applies_before_showing(self) -> None:
+        """生产入口必须「先配层外壳、再 show」。
 
-        doc = Panel.apply_placement.__doc__ or ""
-        self.assertIn("show()", doc)
-        self.assertIn("之前", doc)
+        原来这条只断言 docstring 里有没有「之前」两个字——那是拿文档当测试。
+        实测把 `toggle_panel()` 换回「先 show_at 后 apply_placement」，265 条
+        测试全通过，也就是真正的顺序契约从来没有被测过。
+
+        做法：监视 `apply_placement` 被调用那一刻面板是否已可见。正确顺序是
+        False（还没 show），错误顺序是 True。
+        """
+        from unittest.mock import patch
+
+        from PyQt6.QtWidgets import QApplication
+
+        from dsh_tray.ui.panel import Panel
+        from dsh_tray.ui.tray import TrayApp
+
+        observed: list[bool] = []
+
+        class StubLifecycle:
+            from dsh_tray.lifecycle import State as _S
+
+            state = _S.STOPPED
+            instance = None
+            last_error = ""
+            port = 3080
+
+            def poll(self):
+                return self.state, self.instance
+
+        tray = TrayApp(StubLifecycle(), lambda: None)
+        real = Panel.apply_placement
+
+        def spy(panel_self, placement):
+            observed.append(panel_self.isVisible())
+            return real(panel_self, placement)
+
+        try:
+            with patch.object(Panel, "apply_placement", spy):
+                tray.toggle_panel()
+                QApplication.processEvents()
+            self.assertEqual(
+                observed,
+                [False],
+                "apply_placement 必须在 show 之前调用（观测到 True 说明顺序反了）",
+            )
+        finally:
+            if tray._panel is not None:
+                tray._panel.hide()
 
     def test_returns_false_without_placement(self) -> None:
         self.assertFalse(self.panel.apply_placement(None))
@@ -257,3 +295,133 @@ class LoadRetryTest(unittest.TestCase):
             self.assertIs(placement._load(), sentinel)
             self.assertIs(placement._load(), sentinel)
             self.assertEqual(loader.call_count, 1, "成功后不该重复加载")
+
+
+
+class FakeShell:
+    """记录调用的层外壳替身。
+
+    存在的理由：此前所有「成功」测试都走 `FakePlacement._apply_native()`，真实的
+    `_apply_native()` 从未被验证。实测注入四类缺陷（删 set_anchors、边距左右互换、
+    删 set_desired_size、锚边改成 Top|Left）后 265 条测试**全部保持绿色**——也就是说
+    真实路径上把面板锚到错误角落，测试也不会响。
+    """
+
+    def __init__(self, handle: int = 0xBEEF) -> None:
+        self.calls: list[tuple] = []
+        self._handle = handle
+
+    def window_get(self, ptr: int) -> int:
+        self.calls.append(("window_get", ptr != 0))
+        return self._handle
+
+    def set_anchors(self, handle: int, anchors: int) -> None:
+        self.calls.append(("set_anchors", handle, anchors))
+
+    def set_margins(self, handle: int, left: int, top: int, right: int, bottom: int) -> None:
+        self.calls.append(("set_margins", handle, left, top, right, bottom))
+
+    def set_desired_size(self, handle: int, width: int, height: int) -> None:
+        self.calls.append(("set_desired_size", handle, width, height))
+
+
+class ApplyNativeTest(unittest.TestCase):
+    """真实 `_apply_native()` 的行为——注入假 shell，不改生产代码。"""
+
+    def setUp(self) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        self.app = QApplication.instance() or QApplication([])
+        from dsh_tray.ui.panel import Panel
+
+        self.panel = Panel()
+        self.panel.setFixedSize(378, 600)
+        self.panel.winId()  # 强制创建原生窗口
+        self.placement = LinuxPanelPlacement()
+        self.shell = FakeShell()
+        self.placement._shell = self.shell  # 绕过 _load()，注入替身
+
+    def tearDown(self) -> None:
+        self.panel.deleteLater()
+
+    def _apply(self) -> bool:
+        """跑一次真实 `_apply_native()`。
+
+        离屏环境不是 Wayland，会被平台闸门挡住，所以这里显式放行——本组测试
+        验证的是「闸门之后」的配置逻辑，闸门本身由 `PlatformGateTest` 覆盖。
+        """
+        from unittest.mock import patch
+
+        with patch.object(LinuxPanelPlacement, "_is_wayland", return_value=True):
+            return self.placement.apply(self.panel, 378, 600, self.app.primaryScreen())
+
+    def test_anchors_top_right(self) -> None:
+        """锚边必须是 Top|Right = 9，不是 Top|Left = 5 或其他。"""
+        self.assertTrue(self._apply())
+        anchors = [c for c in self.shell.calls if c[0] == "set_anchors"]
+        self.assertEqual(len(anchors), 1, "set_anchors 必须被调用一次")
+        self.assertEqual(anchors[0][2], 9, "锚边必须是 Top|Right")
+
+    def test_margins_are_top_and_right_only(self) -> None:
+        """边距顺序是 (left, top, right, bottom)，只有 top 与 right 非零。
+
+        左右互换是个真实发生过的错误——单测若只看「调用了」就抓不到。
+        """
+        self.assertTrue(self._apply())
+        margins = [c for c in self.shell.calls if c[0] == "set_margins"]
+        self.assertEqual(len(margins), 1)
+        _, handle, left, top, right, bottom = margins[0]
+        self.assertEqual((left, bottom), (0, 0), "左边距与底边距应为 0")
+        self.assertGreater(top, 0, "上边距应非零")
+        self.assertGreater(right, 0, "右边距应非零")
+        self.assertEqual(top, self.placement.top_margin)
+        self.assertEqual(right, self.placement.right_margin)
+
+    def test_desired_size_matches_widget(self) -> None:
+        """desiredSize 必须传入控件的真实尺寸。"""
+        self.assertTrue(self._apply())
+        sizes = [c for c in self.shell.calls if c[0] == "set_desired_size"]
+        self.assertEqual(len(sizes), 1)
+        _, _, width, height = sizes[0]
+        self.assertEqual((width, height), (378, 600))
+
+    def test_all_calls_use_same_handle(self) -> None:
+        """三处配置必须作用在同一个句柄上。"""
+        self.assertTrue(self._apply())
+        handles = {c[1] for c in self.shell.calls if c[0] != "window_get"}
+        self.assertEqual(handles, {0xBEEF})
+
+    def test_zero_handle_returns_false(self) -> None:
+        """拿不到句柄时必须返回 False，且不再调后续配置。"""
+        self.placement._shell = FakeShell(handle=0)
+        self.assertFalse(self._apply())
+        kinds = [c[0] for c in self.placement._shell.calls]
+        self.assertNotIn("set_anchors", kinds)
+
+
+class PlatformGateTest(unittest.TestCase):
+    """非 Wayland 平台必须返回 False。
+
+    为什么：`Window::get()` 只做 QHash 查找，非 Wayland 下照样返回非空句柄，
+    于是 `apply()` 报成功但合成器不会创建 layer surface。实测 xcb / offscreen /
+    minimal 三种平台下都曾返回 True。
+    """
+
+    def test_non_wayland_returns_false(self) -> None:
+        from unittest.mock import patch
+
+        placement = LinuxPanelPlacement()
+        with patch.object(LinuxPanelPlacement, "_is_wayland", return_value=False):
+            self.assertFalse(placement.apply(object(), 378, 600, None))
+
+    def test_wayland_platform_name_is_checked(self) -> None:
+        from PyQt6.QtGui import QGuiApplication
+
+        self.assertIsInstance(LinuxPanelPlacement._is_wayland(), bool)
+        self.assertEqual(
+            LinuxPanelPlacement._is_wayland(),
+            QGuiApplication.platformName() == "wayland",
+        )
+
+if __name__ == "__main__":
+    unittest.main()

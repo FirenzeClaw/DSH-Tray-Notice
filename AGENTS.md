@@ -171,8 +171,8 @@ DSH-Tray&Notice/
 
 - 没有失败的测试就不写生产代码（TDD）
 - 三条回归基线，重构后必须全部保持：
-  - `python3 -m unittest discover -s dsh_tray/tests -t .`（当前 203 tests）
-  - `cd plugin && npm test`（当前 125 tests）
+  - `python3 -m unittest discover -s dsh_tray/tests -t .`（当前 272 tests）
+  - `cd plugin && npm test`（当前 131 tests）
   - `./dsh-tray.py --selftest`（10/10，竞态行为）
 - 不审查不合并：正确性 / 可读性 / 架构 / 安全 / 性能五轴
 - 详细原则见 `.specify/memory/constitution.md`

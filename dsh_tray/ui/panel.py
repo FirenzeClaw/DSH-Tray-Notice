@@ -54,7 +54,8 @@ DEFAULT_ROWS_VISIBLE = 5
 ROWS_VISIBLE_MIN = 3
 ROWS_VISIBLE_MAX = 12
 
-#: 面板高度上下限。下限保证控制区与标签都在；上限避免在 768 高的屏上超出。
+#: 面板高度上下限。下限保证控制区与标签都在；上限是兜底，真正的上限由
+#: `apply_height()` 按当前屏幕可用高度再夹一次（1366x768 的屏放不下 820）。
 PANEL_MIN_HEIGHT = 340
 PANEL_MAX_HEIGHT = 820
 
@@ -222,7 +223,6 @@ class Panel(QFrame):
         #: 早于此刻的失焦一律忽略，见 show_at / _hide_if_inactive。
         self._ignore_focus_out_until = 0.0
         #: 拖拽起点（相对窗口），None 表示没在拖。
-        self._drag_offset: QPoint | None = None
         #: 未查看列表要露出几条；由设置项驱动，见 set_rows_visible。
         self._rows_visible = DEFAULT_ROWS_VISIBLE
 
@@ -285,6 +285,10 @@ class Panel(QFrame):
         self.footer = QLabel("", self._surface)
         self.footer.setObjectName("panelFooter")
         self.footer.setContentsMargins(14, 4, 14, 10)
+        # 失败原因可能很长（实测 "无法写日志 <绝对路径>: [Errno 28] No space left
+        # on device · 端口 3080" 有 648px，可用只有 348px）。不换行就会把真正
+        # 有用的那半句裁掉——而被裁的恰好是用户唯一能行动的信息。
+        self.footer.setWordWrap(True)
         self.footer.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         surface_layout.addWidget(self.footer)
 
@@ -306,7 +310,7 @@ class Panel(QFrame):
         """按状态刷新标题行与底栏。
 
         两处文案都来自 `dsh_tray.ui.status` 的同一对纯函数，因此不会出现
-        「标题说运行中、底栏说未运行」这种矛盾（FR-019）。
+        「标题说运行中、底栏说未运行」这种矛盾（FR-016）。
 
         @param state - 生命周期状态
         @param instance - 运行实例；未运行时 None
@@ -360,7 +364,13 @@ class Panel(QFrame):
         chrome += 2 * PANEL_MARGIN
 
         target = chrome + self._rows_visible * ROW_HEIGHT + LIST_CHROME_HEIGHT
-        self.setFixedHeight(max(PANEL_MIN_HEIGHT, min(PANEL_MAX_HEIGHT, target)))
+        ceiling = PANEL_MAX_HEIGHT
+        screen = self.screen()
+        if screen is not None:
+            # 兜底上限是写死的 820，而 1366x768 的笔记本屏可用高度约 730——
+            # 面板会伸出屏幕，新加的底栏首当其冲。按实际可用高度再夹一次。
+            ceiling = min(ceiling, max(PANEL_MIN_HEIGHT, screen.availableGeometry().height() - 16))
+        self.setFixedHeight(max(PANEL_MIN_HEIGHT, min(ceiling, target)))
 
     def _footer_height(self) -> int:
         """底栏高度。
@@ -465,8 +475,12 @@ class Panel(QFrame):
         self.winId()
         try:
             return bool(apply(self, self.width(), self.height(), screen))
-        except (RuntimeError, ValueError, OSError):
-            # 定位是体验优化：任何失败都不该让面板打不开。
+        except Exception:  # noqa: BLE001 - 定位失败绝不能让面板打不开
+            # 白名单在这里是错的：ctypes.ArgumentError 的 MRO 是
+            # (ArgumentError, Exception, BaseException, object)——不是 OSError，
+            # 于是它会逃出去，让 toggle_panel() 崩在 show_at() 之前，面板完全
+            # 打不开。定位是体验优化，任何失败都该退化成「位置不理想」而不是
+            # 「面板消失」。
             return False
 
     # ------------------------------------------------------------- 圆角与拖拽
@@ -497,38 +511,6 @@ class Panel(QFrame):
         painter.drawPath(path)
         painter.end()
 
-    def mousePressEvent(self, event) -> None:  # noqa: N802 - Qt 命名
-        """记录拖拽起点。
-
-        @param event - 鼠标事件
-        """
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-            return
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event) -> None:  # noqa: N802 - Qt 命名
-        """按住拖动窗口。
-
-        @param event - 鼠标事件
-        """
-        if self._drag_offset is not None and event.buttons() & Qt.MouseButton.LeftButton:
-            self.move(event.globalPosition().toPoint() - self._drag_offset)
-            event.accept()
-            return
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt 命名
-        """结束拖拽。
-
-        @param event - 鼠标事件
-        """
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_offset = None
-            event.accept()
-            return
-        super().mouseReleaseEvent(event)
 
     def focusOutEvent(self, event) -> None:  # noqa: N802 - Qt 命名
         """失去焦点即隐藏：面板是临时浮层，不该常驻。
@@ -536,9 +518,6 @@ class Panel(QFrame):
         @param event - 焦点事件
         """
         super().focusOutEvent(event)
-        # 正在拖拽时不收起：拖窗口的过程中必然短暂失焦。
-        if self._drag_offset is not None:
-            return
         # 稍等再隐藏：点面板内部的按钮也会触发 focusOut，立刻隐藏会让点击落空。
         QTimer.singleShot(120, self._hide_if_inactive)
 

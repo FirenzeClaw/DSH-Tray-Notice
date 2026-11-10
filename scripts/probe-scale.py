@@ -59,6 +59,9 @@ def render(path: Path) -> bool:
             painter.fillRect(PADDING, PADDING, BLOCK_LOGICAL_WIDTH, BLOCK_LOGICAL_HEIGHT, QColor(*BLOCK_RGB))
             painter.end()
 
+    # 先删掉可能残留的旧截图，否则下面 path.exists() 会把旧文件当成新结果。
+    path.unlink(missing_ok=True)
+
     app = QApplication(sys.argv)
     probe = Probe()
     probe.setWindowTitle("scale-probe")
@@ -78,6 +81,10 @@ def render(path: Path) -> bool:
                 timeout=20,
                 capture_output=True,
             )
+        except (subprocess.SubprocessError, OSError) as exc:
+            # 不能让异常从 Qt 槽里逃出去（PyQt6 只打印 traceback，事件循环继续），
+            # 否则 main() 会拿上一轮的残留截图当成这次的结果。
+            print(f"截图失败：{exc}", file=sys.stderr)
         finally:
             app.quit()
 
@@ -102,27 +109,39 @@ def measure(path: Path) -> int | None:
         r, g, b = pixels[x, y]
         return abs(r - BLOCK_RGB[0]) < 24 and abs(g - BLOCK_RGB[1]) < 24 and abs(b - BLOCK_RGB[2]) < 24
 
-    # 取「最宽纯色段」而不是单行最长段：单行扫描会被横向切过色块的窗口欺骗
-    # （比如另一个窗口压住色块中段，该行的连续段就被截短，测出的宽度偏小）。
-    # 这里先收集每行的最大连续段，再取整体最大值，并跳过色块高度明显不合理的行。
-    runs: list[tuple[int, int]] = []  # (宽度, y)
+    # 按宽度分桶统计，取「有多少行是这么宽」最多的那一档，再取该档的中位宽度。
+    #
+    # 为什么不是取全局最宽段：那样一行噪声（比如窗口边框恰好同色）就能把结果
+    # 拉到离谱的值；也不能取单行最长段，色块被别的窗口横向切过时每行都被截短。
+    # 分桶天然带高度过滤——真正的色块有很多行同宽，噪声通常只有一两行。
+    from collections import Counter
+
+    widths: Counter[int] = Counter()
+    per_row: list[int] = []
     for y in range(height):
         run = 0
+        row_max = 0
         for x in range(width):
             if is_block(x, y):
                 run += 1
             else:
                 if run:
-                    runs.append((run, y))
+                    row_max = max(row_max, run)
                 run = 0
         if run:
-            runs.append((run, y))
-    if not runs:
+            row_max = max(row_max, run)
+        if row_max:
+            per_row.append(row_max)
+            # ±2px 容差：抗锯齿边缘会让相邻行的宽度差 1–2 像素。
+            widths[(row_max + 1) // 2 * 2] += 1
+    if not per_row:
         return None
-    # 只信任出现次数最多的那个宽度档位（±2px 容差），避免一行噪声拉高结果。
-    runs.sort(reverse=True)
-    best = runs[0][0]
-    return best or None
+
+    # 取行数最多的桶；同票时取较宽的（色块比噪声宽）。
+    best_bucket, best_rows = max(widths.items(), key=lambda kv: (kv[1], kv[0]))
+    members = [w for w in per_row if abs(w - best_bucket) <= 2]
+    members.sort()
+    return members[len(members) // 2]
 
 
 def main(argv: list[str] | None = None) -> int:
