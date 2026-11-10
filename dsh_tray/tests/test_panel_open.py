@@ -70,6 +70,7 @@ class _StubLifecycle:
     state = _State.STOPPED
     instance = None
     last_error = ""
+    port = 3080
 
     def poll(self):
         return self.state, self.instance

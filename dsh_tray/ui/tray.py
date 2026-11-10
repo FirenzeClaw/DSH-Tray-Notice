@@ -298,6 +298,9 @@ class TrayApp:
         panel = self._ensure_panel()
         state, instance = self._lifecycle.state, self._lifecycle.instance
         self._control.render(state, instance, self._lifecycle.last_error, busy=self._busy)
+        # 标题行与底栏读同一对纯函数（dsh_tray.ui.status），与控制区的判定同源，
+        # 避免三处各算一遍得出不同结论。
+        panel.set_status(state, instance, self._lifecycle.last_error, self._lifecycle.port)
         self._unread = unread_count()
         self._read = read_count()
         panel.set_counts(self._unread, self._read, len(self._session_table.active()))

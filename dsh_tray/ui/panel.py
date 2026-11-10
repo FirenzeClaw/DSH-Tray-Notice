@@ -14,17 +14,22 @@ from __future__ import annotations
 import time
 from typing import Callable
 
-from PyQt6.QtCore import QPoint, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QPoint, QRectF, QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QStackedWidget,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
+
+from ..lifecycle import Instance, State
+from .status import detail_text, status_text
 
 #: 面板宽度，与设计稿一致（378 px 是在 1366 宽屏上能贴住托盘又不遮内容的折中）。
 PANEL_WIDTH = 378
@@ -239,7 +244,7 @@ class Panel(QFrame):
         header = QWidget(self._surface)
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(14, 12, 14, 8)
-        self._title = QLabel("DSH 通知", header)
+        self._title = QLabel("DSH", header)
         self._title.setObjectName("panelTitle")
         header_layout.addWidget(self._title)
         header_layout.addStretch(1)
@@ -247,6 +252,20 @@ class Panel(QFrame):
         self._missed.setObjectName("missedHint")
         self._missed.hide()
         header_layout.addWidget(self._missed)
+        # 关闭按钮：无边框窗口没有系统标题栏，没有它就只剩「点别处失焦」这条
+        # 隐式路径，用户不一定知道。
+        self.close_button = QPushButton(header)
+        self.close_button.setObjectName("panelClose")
+        self.close_button.setFlat(True)
+        self.close_button.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_TitleBarCloseButton)
+        )
+        self.close_button.setIconSize(QSize(14, 14))
+        self.close_button.setFixedSize(22, 22)
+        self.close_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.close_button.setToolTip("关闭面板")
+        self.close_button.clicked.connect(self.hide)
+        header_layout.addWidget(self.close_button)
         surface_layout.addWidget(header)
 
         self._control: QWidget | None = None
@@ -261,7 +280,43 @@ class Panel(QFrame):
             self.stack.addWidget(QWidget(self._surface))
         surface_layout.addWidget(self.stack, 1)
 
+        # 底栏：PID / 端口 / 启动方式 / 令牌。放在最下方、单行、次要色，
+        # 让状态（标题行）与细节（这里）在垂直方向分开。
+        self.footer = QLabel("", self._surface)
+        self.footer.setObjectName("panelFooter")
+        self.footer.setContentsMargins(14, 4, 14, 10)
+        self.footer.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        surface_layout.addWidget(self.footer)
+
         self.tabs.changed.connect(self.stack.setCurrentIndex)
+        self.apply_height()
+
+    @property
+    def title_text(self) -> str:
+        """标题行当前文本。"""
+        return self._title.text()
+
+    def set_status(
+        self,
+        state: State,
+        instance: Instance | None,
+        error: str,
+        port: int,
+    ) -> None:
+        """按状态刷新标题行与底栏。
+
+        两处文案都来自 `dsh_tray.ui.status` 的同一对纯函数，因此不会出现
+        「标题说运行中、底栏说未运行」这种矛盾（FR-019）。
+
+        @param state - 生命周期状态
+        @param instance - 运行实例；未运行时 None
+        @param error - 失败原因
+        @param port - 端口
+        """
+        self._title.setText(status_text(state))
+        footer = getattr(self, "footer", None)
+        if footer is not None:
+            footer.setText(detail_text(state, instance, error, port))
         self.apply_height()
 
     def set_control(self, control: QWidget) -> None:
@@ -301,10 +356,24 @@ class Panel(QFrame):
             chrome += self._control.sizeHint().height()
         chrome += self.tabs.sizeHint().height()
         chrome += self._header_height()
+        chrome += self._footer_height()
         chrome += 2 * PANEL_MARGIN
 
         target = chrome + self._rows_visible * ROW_HEIGHT + LIST_CHROME_HEIGHT
         self.setFixedHeight(max(PANEL_MIN_HEIGHT, min(PANEL_MAX_HEIGHT, target)))
+
+    def _footer_height(self) -> int:
+        """底栏高度。
+
+        按 `sizeHint()` 实测而不是写死：字体度量随字号/DPI 变化，写死会让列表
+        最后一条在多出来的几像素里被截掉一半。
+
+        @returns 像素高度；底栏被隐藏时为 0
+        """
+        footer = getattr(self, "footer", None)
+        if footer is None or footer.isHidden():
+            return 0
+        return footer.sizeHint().height()
 
     def _header_height(self) -> int:
         """标题行高度。
